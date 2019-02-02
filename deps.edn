@@ -1,0 +1,19 @@
+{:paths ["resources" "src"]
+ :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
+        datascript                     {:mvn/version "0.17.1"}
+        org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
+        org.clojure/tools.deps.alpha   {:mvn/version "0.6.480"}
+        org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
+        org.clojure/tools.analyzer.jvm {:mvn/version "0.7.2"}
+        org.clojure/clojurescript      {:mvn/version "1.10.516"}
+
+        org.clojure/tools.namespace    {:mvn/version "0.3.0-alpha4"}}
+ :aliases
+ {:test {:extra-paths ["test"]
+         :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}}}
+  :runner
+  {:extra-deps {com.cognitect/test-runner
+                {:git/url "https://github.com/cognitect-labs/test-runner"
+                 :sha "76568540e7f40268ad2b646110f237a60295fa3c"}}
+   :main-opts ["-m" "cognitect.test-runner"
+               "-d" "test"]}}}
