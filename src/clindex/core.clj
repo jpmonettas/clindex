@@ -191,32 +191,33 @@
                                      ns-temp-id (get-namespace-temp-id temp-ids (:namespace/name ns))]
                                  (if-not (:namespace/name ns)
                                    (do (println "ERROR: Namespace name is empty " ns) r)
-                                   (into r [[:db/add var-temp-id :var/name (str var-symb)]
+                                   (into r [[:db/add var-temp-id :var/name var-symb]
                                             [:db/add var-temp-id :var/namespace ns-temp-id]
                                             [:db/add var-temp-id :var/line line]]))))
                              []))]
     {:facts (into facts tx-data)
      :temp-ids temp-ids'}))
 
-(defn index-all! [conn all-projs all-forms]
+(defn all-forms-facts [{:keys [facts temp-ids]} forms]
+  (let [temp-ids' temp-ids
+        tx-data []]
+    {:facts (into facts tx-data)
+    :temp-ids temp-ids'}))
+
+(defn index-project! [base-dir]
   ;; TODO: all-projs can be derived all-from forms
   ;; IMPORTANT: the order here is important since they are dependent
-  (let [all-facts (-> {:facts [] :temp-ids{}}
+  (let [all-projs (all-projects (project base-dir))
+        all-forms (->> all-projs
+                       (mapcat (fn [[p-sym p-map]] (project-forms p-sym p-map)))
+                       doall)
+        all-facts (-> {:facts [] :temp-ids{}}
                       (all-projects-facts all-projs)
                       (all-namespaces-facts all-forms)
                       (all-vars-facts all-forms)
+                      (all-forms-facts all-forms)
                       :facts)]
-    (d/transact! conn all-facts)))
-
-#_(defn index-project [base-dir]
-  (let [all-projects (all-projects (project base-dir))
-        all-forms (->> all-projects
-                       (mapcat (fn [[p-sym p-map]]
-                                 (project-forms p-sym p-map))))
-        {:keys [tx-data]} (index-symbols! db-conn all-forms)]
-    (println (format "Preindexed %d symbols" (count tx-data)))
-
-    (index-all! db-conn all-forms)))
+    (d/transact! db-conn all-facts)))
 
 (comment
 
@@ -243,7 +244,7 @@
                      (namespaces-facts all-forms)
                      :facts))
 
-  (def tx-result (index-all! db-conn all-projs all-forms))
+  (def tx-result (index-project! "/home/jmonetta/my-projects/clindex"))
 
   ;; all namespaces for 'org.clojure/spec.alpha project
   (d/q '[:find ?nsn
@@ -323,8 +324,3 @@
                  )
 
 )
-
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (println "Hello, World!"))
