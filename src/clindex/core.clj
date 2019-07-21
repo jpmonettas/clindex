@@ -12,10 +12,15 @@
             [datascript.core :as d])
   (:gen-class))
 
-(def db-conn (d/create-conn {:project/name {:db/cardinality :db.cardinality/one}
-                             :project/depends {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-                             :namespace/name {:db/cardinality :db.cardinality/one}
-                             :namespace/project {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}}))
+(def db-conn (d/create-conn {:project/name      {:db/cardinality :db.cardinality/one}
+                             :project/depends   {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+                             :file/name         {:db/cardinality :db.cardinality/one}
+                             :namespace/name    {:db/cardinality :db.cardinality/one}
+                             :namespace/project {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :namespace/file    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :var/name          {:db/cardinality :db.cardinality/one}
+                             :var/line          {:db/cardinality :db.cardinality/one}
+                             :var/namespace     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}}))
 
 (def mvn-repos {"central" {:url "https://repo1.maven.org/maven2/"}
                 "clojars" {:url "https://repo.clojars.org/"}})
@@ -86,9 +91,10 @@
                    (utils/all-files p analyze-source-file?)))
                paths)
        (mapcat (fn [src-file]
-                 (let [{:keys [ns-name alias-map source-forms]} (parse-file src-file)
+                 (let [{:keys [ns-name alias-map source-forms absolute-path]} (parse-file src-file)
                        ns {:namespace/name ns-name
                            :namespace/requires alias-map
+                           :namespace/file absolute-path
                            :project/name proj-sym}]
                    (map (fn [form]
                           (with-meta
@@ -121,77 +127,84 @@
 (defn all-projects-facts [{:keys [facts temp-ids]} all-projects-map]
   (let [projects-set (into #{} (keys all-projects-map))
         project-temp-ids (zipmap projects-set (iterate dec (next-temp-id temp-ids)))
-        new-temp-ids (assoc temp-ids :projects project-temp-ids)
+        temp-ids' (assoc temp-ids :projects project-temp-ids)
         tx-data (reduce-kv (fn [r proj-symb {:keys [dependents paths]}]
                              (let [pid (get project-temp-ids proj-symb)
                                    pdeps (project-dependencies proj-symb all-projects-map)
                                    pdeps-ids (map #(get project-temp-ids %) pdeps)]
                                (->> r
-                                    (into [[:db/add  pid :project/name (str proj-symb)]])
+                                    (into [[:db/add  pid :project/name proj-symb]])
                                     (into (mapv (fn [pdid]
                                                  [:db/add pid :project/depends pdid])
                                                pdeps-ids)))))
                  []
                  all-projects-map)]
     {:facts (into facts tx-data)
-     :temp-ids new-temp-ids}))
-
-;; TODO: memoize this to speed it up
-#_(defn project-id-by-name [db name]
-  (d/q '[:find ?pid .
-         :in $ ?pn
-         :where [?pid :project/name ?pn]]
-       db
-       (str name)))
+     :temp-ids temp-ids'}))
 
 (defn get-namespace-temp-id [temp-ids ns-symb]
   (get-in temp-ids [:namespaces ns-symb]))
 
-(defn all-namespaces [forms]
-  (reduce (fn [r {:keys [ns]}]
-            (conj r ns))
-          #{}
-          forms))
 
 (defn all-namespaces-facts [{:keys [facts temp-ids]} forms]
   (let [namespaces-set (reduce (fn [r {:keys [ns]}]
-                                 (conj r (:namespace/name ns)))
+                                 (conj r ns))
                                #{}
                                forms)
-        ns-temp-ids (zipmap namespaces-set (iterate dec (next-temp-id temp-ids)))
-        new-temp-ids (assoc temp-ids :namespaces ns-temp-ids)
-        tx-data (->> (all-namespaces forms)
+        ns-temp-ids (zipmap (map :namespace/name namespaces-set) (iterate dec (next-temp-id temp-ids)))
+        temp-ids' (assoc temp-ids :namespaces ns-temp-ids)
+        files-temp-ids (zipmap (map :namespace/file namespaces-set) (iterate dec (next-temp-id temp-ids')))
+        temp-ids'' (assoc temp-ids' :files files-temp-ids)
+        tx-data (->> namespaces-set
                      (reduce (fn [r ns]
                                ;; TODO: add namespace requires facts
-                               (let [ns-temp-id (get ns-temp-ids (:namespace/name ns))
+                               (let [file-temp-id (get files-temp-ids (:namespace/file ns))
+                                     ns-temp-id (get ns-temp-ids (:namespace/name ns))
                                      prj-temp-id (get-project-temp-id temp-ids (:project/name ns))]
-                                 (if-not (:namespace/name ns)
-                                   (do (println "ERROR: Namespace name is empty " ns) r)
-                                   (into r [[:db/add ns-temp-id :namespace/name (str (:namespace/name ns))]
+                                 (if-not (and (:namespace/name ns)
+                                              (:namespace/file ns))
+                                   (do (println "ERROR: Namespace name or file name is empty " ns) r)
+                                   (into r [[:db/add file-temp-id :file/name (:namespace/file ns)]
+                                            [:db/add ns-temp-id :namespace/file file-temp-id]
+                                            [:db/add ns-temp-id :namespace/name (:namespace/name ns)]
                                             [:db/add ns-temp-id :namespace/project prj-temp-id]]))))
                              []))]
     {:facts (into facts tx-data)
-     :temp-ids new-temp-ids}))
+     :temp-ids temp-ids''}))
 
-#_(defn index-symbols! [conn forms]
-  (let [symbols-set (reduce (fn [r {:keys [form]}]
-                              (if (and (list? form)
-                                       (def-set (first form)))
-                                (conj r (second form))
-                                r))
-                            #{}
-                            forms)
-        forms-ids (zipmap symbols-set (map #(* -1 %) (range)))
-        facts (mapcat (fn [[symb tmp-id]]
-                        [:db/add tmp-id :symbol/name symb])
-                      forms-ids)]
-    (d/transact! conn facts)))
+(defn all-vars-facts [{:keys [facts temp-ids]} forms]
+  (let [vars-set (reduce (fn [r {:keys [ns form]}]
+                           (if (and (list? form)
+                                    (symbol? (second form))
+                                    (contains? def-set (first form)))
+                             (conj r {:var-symb (second form)
+                                      :ns ns
+                                      :line (:line (meta form))})
+                             r))
+                         #{}
+                         forms)
+        vars-temp-ids (zipmap (map :var-symb vars-set) (iterate dec (next-temp-id temp-ids)))
+        temp-ids' (assoc temp-ids :vars vars-temp-ids)
+        tx-data (->> vars-set
+                     (reduce (fn [r {:keys [var-symb ns line]}]
+                               (let [var-temp-id (get vars-temp-ids var-symb)
+                                     ns-temp-id (get-namespace-temp-id temp-ids (:namespace/name ns))]
+                                 (if-not (:namespace/name ns)
+                                   (do (println "ERROR: Namespace name is empty " ns) r)
+                                   (into r [[:db/add var-temp-id :var/name (str var-symb)]
+                                            [:db/add var-temp-id :var/namespace ns-temp-id]
+                                            [:db/add var-temp-id :var/line line]]))))
+                             []))]
+    {:facts (into facts tx-data)
+     :temp-ids temp-ids'}))
 
 (defn index-all! [conn all-projs all-forms]
   ;; TODO: all-projs can be derived all-from forms
+  ;; IMPORTANT: the order here is important since they are dependent
   (let [all-facts (-> {:facts [] :temp-ids{}}
                       (all-projects-facts all-projs)
                       (all-namespaces-facts all-forms)
+                      (all-vars-facts all-forms)
                       :facts)]
     (d/transact! conn all-facts)))
 
@@ -230,8 +243,9 @@
                      (namespaces-facts all-forms)
                      :facts))
 
-  (index-all! db-conn all-projs all-forms)
+  (def tx-result (index-all! db-conn all-projs all-forms))
 
+  ;; all namespaces for 'org.clojure/spec.alpha project
   (d/q '[:find ?nsn
          :in $ ?pn
          :where
@@ -239,14 +253,28 @@
          [?nsid :namespace/project ?pid]
          [?nsid :namespace/name ?nsn]]
        @db-conn
-       "org.clojure/spec.alpha")
+       'org.clojure/spec.alpha)
 
+  ;; all namespaces for all projects
   (d/q '[:find ?pid ?pn ?nsid ?nsn
          :where
          [?pid :project/name ?pn]
          [?nsid :namespace/project ?pid]
          [?nsid :namespace/name ?nsn]]
        @db-conn)
+
+  ;; all vars for clojure.spec.alpha namespace
+  (d/q '[:find ?vn ?vl ?fname
+         :in $ ?nsn
+         :where
+         [?fid :file/name ?fname]
+         [?nid :namespace/file ?fid]
+         [?nid :namespace/name ?nsn]
+         [?vid :var/namespace ?nid]
+         [?vid :var/name ?vn]
+         [?vid :var/line ?vl]]
+       @db-conn
+       'clojure.spec.alpha)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   (index-project "/home/jmonetta/my-projects/clindex")
