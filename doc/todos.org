@@ -1,0 +1,7 @@
+- [X] do protocols for projects
+- [ ] do protocols for ns
+- [ ] figure out errors when indexing from scratch
+- [ ] implement all-forms-facts, Q: are symbols fully namespaced?
+- [ ] API index tools.deps project instead of base-path
+- [ ] make it work with CLJS
+- [ ] add lein support

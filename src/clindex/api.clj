@@ -17,13 +17,15 @@
 
 (defn search-var
   "Searches the index for a var, returns a collection of maps containing
-  :name, :ns, :file and :line."
+  :name, :ns, :project :file and :line."
   [search-term]
-  (let [q-result (d/q '[:find ?vn ?nsn ?vl ?fname
+  (let [q-result (d/q '[:find ?vn ?nsn ?pname ?vl ?fname
                         :in $ ?st
                         :where
                         [?fid :file/name ?fname]
+                        [?pid :project/name ?pname]
                         [?nid :namespace/file ?fid]
+                        [?nid :namespace/project ?pid]
                         [?nid :namespace/name ?nsn]
                         [?vid :var/namespace ?nid]
                         [?vid :var/name ?vn]
@@ -31,7 +33,7 @@
                         [(str/starts-with? ?vn ?st)]]
                       @core/db-conn
                       search-term)]
-       (map #(zipmap [:name :ns :line :file] %) q-result)))
+       (map #(zipmap [:name :ns :project :line :file] %) q-result)))
 
 (comment
 

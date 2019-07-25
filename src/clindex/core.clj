@@ -22,30 +22,49 @@
                              :var/line          {:db/cardinality :db.cardinality/one}
                              :var/namespace     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}}))
 
+(defprotocol Project
+  (project-name [_])
+  (project-paths [_])
+  (project-version [_])
+  (dependencies [_]))
+
+(extend-protocol Project
+  clojure.lang.PersistentArrayMap
+  (project-name [m] (:project/name m))
+  (project-paths [m] (:paths m))
+  (project-version [m] (:mvn/version m))
+  (dependencies [m] (:project/dependencies m)))
+
 (def mvn-repos {"central" {:url "https://repo1.maven.org/maven2/"}
                 "clojars" {:url "https://repo.clojars.org/"}})
 
 (def main-project-symb 'clindex.core/main-project)
 
-(defn all-projects [{:keys [deps] :as main-project}]
-  (let [all-prjs (-> (tools-dep/resolve-deps (assoc main-project :mvn/repos mvn-repos) nil)
-                     (assoc main-project-symb (-> (select-keys main-project [:paths])
-                                                  (assoc :main? true))))
-        main-project-deps-set (->> (keys deps) (into #{}))]
-    ;; add ::main-project to dependencies :dependents
-    (->> all-prjs
+(defn project-dependencies [project-symbol projects-map]
+  (reduce-kv (fn [r dep-proy-symb {:keys [dependents]}]
+               (if (contains? (into #{} dependents) project-symbol)
+                 (conj r dep-proy-symb)
+                 r))
+             #{}
+             projects-map))
+
+(defn all-projects [proj]
+  (let [all-projs (tools-dep/resolve-deps (assoc proj :mvn/repos mvn-repos) nil)]
+    (->> all-projs
          (map (fn [[p m]]
-                (if (contains? main-project-deps-set p)
-                  [p (update m :dependents (fnil conj []) main-project-symb)]
-                  [p m])))
-         (into {}))))
+                [p (assoc m
+                          :project/dependencies (project-dependencies p all-projs)
+                          :project/name p)]))
+         (into {main-project-symb (assoc proj :main? true)}))))
 
 (defn project [base-dir]
   (let [{:keys [deps paths]} (-> (utils/all-files base-dir #(str/ends-with? (str %) "deps.edn"))
                                  first
                                  :full-path
                                  tools-io/slurp-edn)]
-    {:deps deps
+    {:project/name main-project-symb
+     :deps deps
+     :project/dependencies (->> deps keys (into #{}))
      :paths (or paths ["src"])}))
 
 (defn ns-form [url]
@@ -84,18 +103,18 @@
   (or (str/ends-with? full-path ".clj")
       (str/ends-with? full-path ".cljc")))
 
-(defn project-forms [proj-sym {:keys [paths]}]
-  (->> (mapcat (fn [p]
+(defn project-forms [project]
+  (->> (project-paths project)
+       (mapcat (fn [p]
                  (if (str/ends-with? p ".jar")
                    (utils/jar-files p analyze-source-file?)
-                   (utils/all-files p analyze-source-file?)))
-               paths)
+                   (utils/all-files p analyze-source-file?))))
        (mapcat (fn [src-file]
                  (let [{:keys [ns-name alias-map source-forms absolute-path]} (parse-file src-file)
                        ns {:namespace/name ns-name
                            :namespace/requires alias-map
                            :namespace/file absolute-path
-                           :project/name proj-sym}]
+                           :project/name (project-name project)}]
                    (map (fn [form]
                           (with-meta
                             {:ns ns
@@ -104,14 +123,6 @@
                         source-forms))))))
 
 (def def-set #{'def 'defn 'defn- 'defmulti 'deftype 'defprotocol 'defrecod})
-
-(defn project-dependencies [project-symbol projects-map]
-  (reduce-kv (fn [r dep-proy-symb {:keys [dependents]}]
-               (if (contains? (into #{} dependents) project-symbol)
-                 (conj r dep-proy-symb)
-                 r))
-             #{}
-             projects-map))
 
 (defn next-temp-id [temp-ids]
   (let [ids (->> (vals temp-ids)
@@ -128,17 +139,17 @@
   (let [projects-set (into #{} (keys all-projects-map))
         project-temp-ids (zipmap projects-set (iterate dec (next-temp-id temp-ids)))
         temp-ids' (assoc temp-ids :projects project-temp-ids)
-        tx-data (reduce-kv (fn [r proj-symb {:keys [dependents paths]}]
-                             (let [pid (get project-temp-ids proj-symb)
-                                   pdeps (project-dependencies proj-symb all-projects-map)
-                                   pdeps-ids (map #(get project-temp-ids %) pdeps)]
-                               (->> r
-                                    (into [[:db/add  pid :project/name proj-symb]])
-                                    (into (mapv (fn [pdid]
-                                                 [:db/add pid :project/depends pdid])
-                                               pdeps-ids)))))
-                 []
-                 all-projects-map)]
+        tx-data (reduce (fn [r proj]
+                          (let [pid (get project-temp-ids (project-name proj))
+                                pdeps (dependencies proj)
+                                pdeps-ids (map #(get project-temp-ids %) pdeps)]
+                            (->> r
+                                 (into [[:db/add  pid :project/name (project-name proj)]])
+                                 (into (mapv (fn [pdid]
+                                               [:db/add pid :project/depends pdid])
+                                             pdeps-ids)))))
+                        []
+                        (vals all-projects-map))]
     {:facts (into facts tx-data)
      :temp-ids temp-ids'}))
 
@@ -205,13 +216,12 @@
     :temp-ids temp-ids'}))
 
 (defn index-project! [base-dir]
-  ;; TODO: all-projs can be derived all-from forms
-  ;; IMPORTANT: the order here is important since they are dependent
+  ;; TODO: all-projs can be derived from all-forms
   (let [all-projs (all-projects (project base-dir))
-        all-forms (->> all-projs
-                       (mapcat (fn [[p-sym p-map]] (project-forms p-sym p-map)))
-                       doall)
-        all-facts (-> {:facts [] :temp-ids{}}
+        all-forms (->> (vals all-projs)
+                       (mapcat (fn [p] (project-forms p))))
+        ;; IMPORTANT: the order here is important since they are dependent
+        all-facts (-> {:facts [] :temp-ids {}}
                       (all-projects-facts all-projs)
                       (all-namespaces-facts all-forms)
                       (all-vars-facts all-forms)
@@ -227,12 +237,11 @@
 
   (def all-projs (all-projects proj))
 
-  (def core-cache-forms (project-forms 'org.clojure/core.cache
-                                     (get all-projs 'org.clojure/core.cache)))
+  (def core-cache-forms (project-forms (get all-projs 'org.clojure/core.cache)))
 
-  (def all-forms (->> all-projs
-                      (mapcat (fn [[p-sym p-map]]
-                                (project-forms p-sym p-map)))
+  (def all-forms (->> (vals all-projs)
+                      (mapcat (fn [p]
+                                (project-forms p)))
                       doall))
 
 
