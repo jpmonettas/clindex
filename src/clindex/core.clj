@@ -40,6 +40,10 @@
 
 (def main-project-symb 'clindex.core/main-project)
 
+;;;;;;;;;;;;;;
+;; Projects ;;
+;;;;;;;;;;;;;;
+
 (defn project-dependencies [project-symbol projects-map]
   (reduce-kv (fn [r dep-proy-symb {:keys [dependents]}]
                (if (contains? (into #{} dependents) project-symbol)
@@ -58,14 +62,37 @@
          (into {main-project-symb (assoc proj :main? true)}))))
 
 (defn project [base-dir]
-  (let [{:keys [deps paths]} (-> (utils/all-files base-dir #(str/ends-with? (str %) "deps.edn"))
-                                 first
-                                 :full-path
-                                 tools-io/slurp-edn)]
+  (let [tool-deps (some-> (utils/all-files base-dir #(str/ends-with? (str %) "deps.edn"))
+                          first
+                          :full-path
+                          tools-io/slurp-edn)
+        lein-proj (some-> (utils/all-files base-dir #(str/ends-with? (str %) "project.clj"))
+                          first
+                          :full-path
+                          slurp
+                          read-string)
+        {:keys [deps paths]} (or
+                              ;; tools deps
+                              tool-deps
+
+                              ;; lein proj
+                              (let [[_ _ _ & r] lein-proj
+                                    {:keys [dependencies source-paths]} (->> (partition 2 r)
+                                                                             (map vec)
+                                                                             (into {}))]
+                                {:deps (->> dependencies
+                                            (map (fn [[p v]]
+                                                   [p {:mvn/version v}]))
+                                            (into {}))
+                                 :paths source-paths}))]
     {:project/name main-project-symb
      :deps deps
      :project/dependencies (->> deps keys (into #{}))
      :paths (or paths ["src"])}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Namespaces and files ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn ns-form [url]
   (-> url
@@ -74,14 +101,14 @@
       java.io.PushbackReader.
       tools-ns-parse/read-ns-decl))
 
-(defn normalize-ns-form [ns-form]
-  (remove #(= % '(:gen-class)) ns-form))
+(defn normalized-ns-form-str [ns-form]
+  (let [ns-form-str (pr-str (remove #(= % '(:gen-class)) ns-form))]
+    ns-form-str))
 
 (defn parse-file [{:keys [full-path content-url]}]
   (try
     (let [{:keys [requires name] :as ast} (:ast (->> (ns-form content-url)
-                                                     normalize-ns-form
-                                                     pr-str
+                                                     normalized-ns-form-str
                                                      java.io.StringReader.
                                                      cljs-ana/parse-ns))]
       (binding [reader/*data-readers* tags/*cljs-data-readers*
@@ -100,7 +127,7 @@
       nil)))
 
 (defn analyze-source-file? [full-path]
-  (or (str/ends-with? full-path ".clj")
+  (or (str/ends-with? full-path ".cljs")
       (str/ends-with? full-path ".cljc")))
 
 (defn project-forms [project]
@@ -111,6 +138,7 @@
                    (utils/all-files p analyze-source-file?))))
        (mapcat (fn [src-file]
                  (let [{:keys [ns-name alias-map source-forms absolute-path]} (parse-file src-file)
+
                        ns {:namespace/name ns-name
                            :namespace/requires alias-map
                            :namespace/file absolute-path
@@ -121,6 +149,10 @@
                              :form form}
                             {:type :clindex/form}))
                         source-forms))))))
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Facts generation ;;
+;;;;;;;;;;;;;;;;;;;;;;
 
 (def def-set #{'def 'defn 'defn- 'defmulti 'deftype 'defprotocol 'defrecod})
 
@@ -194,11 +226,11 @@
                              r))
                          #{}
                          forms)
-        vars-temp-ids (zipmap (map :var-symb vars-set) (iterate dec (next-temp-id temp-ids)))
+        vars-temp-ids (zipmap vars-set (iterate dec (next-temp-id temp-ids)))
         temp-ids' (assoc temp-ids :vars vars-temp-ids)
         tx-data (->> vars-set
-                     (reduce (fn [r {:keys [var-symb ns line]}]
-                               (let [var-temp-id (get vars-temp-ids var-symb)
+                     (reduce (fn [r {:keys [var-symb ns line] :as v}]
+                               (let [var-temp-id (get vars-temp-ids v)
                                      ns-temp-id (get-namespace-temp-id temp-ids (:namespace/name ns))]
                                  (if-not (:namespace/name ns)
                                    (do (println "ERROR: Namespace name is empty " ns) r)
@@ -227,13 +259,19 @@
                       (all-vars-facts all-forms)
                       (all-forms-facts all-forms)
                       :facts)]
+    (println (format "About to transact %d facts" (count all-facts)))
     (d/transact! db-conn all-facts)))
+
+;;;;;;;;;;;;;;;;;;
+;; For the repl ;;
+;;;;;;;;;;;;;;;;;;
 
 (comment
 
 
 
   (def proj (project "/home/jmonetta/my-projects/clindex"))
+  (def proj (project "/home/jmonetta/my-projects/district0x/memefactory"))
 
   (def all-projs (all-projects proj))
 
@@ -254,6 +292,7 @@
                      :facts))
 
   (def tx-result (index-project! "/home/jmonetta/my-projects/clindex"))
+  (def tx-result (index-project! "/home/jmonetta/my-projects/district0x/memefactory"))
 
   ;; all namespaces for 'org.clojure/spec.alpha project
   (d/q '[:find ?nsn
@@ -332,4 +371,15 @@
                                    "clojars" {:url "https://repo.clojars.org/"}}}
                  )
 
-)
+  ;; This gives a error because :refer :all
+  ;; (try
+  ;;   (cljs-ana/parse-ns (java.io.StringReader. "(ns clojure.tools.analyzer
+  ;; (:refer-clojure :exclude [macroexpand-1 macroexpand var? record? boolean?])
+  ;; (:require [clojure.tools.analyzer.utils :refer :all]
+  ;;           [clojure.tools.analyzer.env :as env])
+  ;; (:import (clojure.lang Symbol IPersistentVector IPersistentMap IPersistentSet ISeq IType IRecord)))"))
+  ;;   (catch Exception e
+  ;;     (println e)))
+
+
+  )
