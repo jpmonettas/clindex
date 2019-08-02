@@ -1,8 +1,9 @@
-- [X] do protocols for projects
-- [ ] do protocols for ns
-- [ ] figure out errors when indexing from scratch
-- [ ] implement all-forms-facts, Q: are symbols fully namespaced?
-- [ ] API index tools.deps project instead of base-path
-- [X] make it work with CLJS
-- [ ] make it work with Clojure (:refer :all problem)
-- [X] add lein support
+- [X] scanner projects
+- [X] scanner namespaces
+- [ ] scanner separate ns priv and public vars with extension mechanism
+- [ ] indexer project facts
+- [ ] indexer file facts
+- [ ] indexer namespaces facts
+- [ ] indexer namespaces deps facts
+- [ ] indexer namespaces vars facts
+- [ ] indexer namespaces forms facts with extension mechanism

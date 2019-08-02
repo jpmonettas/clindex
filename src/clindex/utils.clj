@@ -5,12 +5,15 @@
   (:import [java.io File]
            [java.util.jar JarFile]))
 
+(defn jar-full-path [jar-path file-path]
+  (format "jar:file:%s!/%s" jar-path file-path))
+
 (defn make-file
   ([path]
    {:full-path path
     :content-url (io/as-url (File. path))})
   ([jar-path path]
-   (let [full-path (format "jar:file:%s!/%s" jar-path path)]
+   (let [full-path (jar-full-path jar-path path)]
      {:jar jar-path
       :path path
       :full-path full-path
@@ -30,10 +33,15 @@
        (map (fn [p]
               (make-file jar-path (.getName p))))))
 
-(defmethod print-method :clindex/form [{:keys [project ns-name form]} ^java.io.Writer w]
-  (.write w (format "{:project %s :ns-name %s :form %s...}\n"
-                    project
-                    ns-name
-                    (if (> (count (str form)) 20)
-                      (subs (pr-str form) 0 20)
-                      (pr-str form)))))
+(defmethod print-method :clindex/form [form ^java.io.Writer w]
+  (let [form (with-meta form nil)]
+    (.write w (format "%s...\n"
+                      (if (> (count (pr-str form)) 20)
+                        (subs (pr-str form) 0 20)
+                        (pr-str form))))))
+
+(defmethod print-method java.net.URL [o w]
+  (.write w (format "#url \"%s\"" (str o))))
+
+(defn read-url [url]
+  (java.net.URL. (str url)))

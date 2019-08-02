@@ -35,10 +35,6 @@
   (project-version [m] (:mvn/version m))
   (dependencies [m] (:project/dependencies m)))
 
-(def mvn-repos {"central" {:url "https://repo1.maven.org/maven2/"}
-                "clojars" {:url "https://repo.clojars.org/"}})
-
-(def main-project-symb 'clindex.core/main-project)
 
 ;;;;;;;;;;;;;;
 ;; Projects ;;
@@ -90,6 +86,9 @@
      :project/dependencies (->> deps keys (into #{}))
      :paths (or paths ["src"])}))
 
+(defn data-readers [proj]
+  )
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Namespaces and files ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -105,39 +104,45 @@
   (let [ns-form-str (pr-str (remove #(= % '(:gen-class)) ns-form))]
     ns-form-str))
 
-(defn parse-file [{:keys [full-path content-url]}]
-  (try
-    (let [{:keys [requires name] :as ast} (:ast (->> (ns-form content-url)
-                                                     normalized-ns-form-str
-                                                     java.io.StringReader.
-                                                     cljs-ana/parse-ns))]
-      (binding [reader/*data-readers* tags/*cljs-data-readers*
-                reader/*alias-map* requires
-                clojure.core/*read-eval* false
-                ;;*ns* name
-                ]
-        {:ns-name name
-         :absolute-path full-path
-         :alias-map reader/*alias-map*
-         :source-forms (reader/read {:read-cond :allow}
-                        (reader-types/indexing-push-back-reader (str "[" (slurp content-url) "]")))}))
-    (catch Exception e
-      (println (format "ERROR while reading file %s %s" full-path (ex-message e)))
-      #_(.printStackTrace e)
-      nil)))
+;; TODO : Make this also work for clojure.
+;; The problem so far has to do with cljs-ana/parse-ns doesn't handle :refer :all
+(defn analyze-ns [file-url]
+  (:ast (try
+          (when (ns-form file-url)
+            (cljs-ana/parse-ns file-url))
+          (catch Exception e
+            (println "Error while analizing ns on " file-url)
+            (clojure.repl/pst e 1)))))
+
+(defn parse-file [{:keys [full-path content-url]} data-readers]
+  (let [{:keys [requires name]} (analyze-ns content-url)]
+    (binding [reader/*data-readers* (merge tags/*cljs-data-readers* data-readers)
+              reader/*alias-map* requires
+              reader/*read-eval* false
+              ;;*ns* name
+              ]
+      {:ns-name name
+       :absolute-path full-path
+       :alias-map reader/*alias-map*
+       :source-forms (try
+                       (reader/read {:read-cond :allow}
+                                    (reader-types/indexing-push-back-reader (str "[" (slurp content-url) "]")))
+                       (catch Exception e
+                         (println "Error when reading the file" content-url)
+                         (clojure.repl/pst e 1)))})))
 
 (defn analyze-source-file? [full-path]
   (or (str/ends-with? full-path ".cljs")
       (str/ends-with? full-path ".cljc")))
 
-(defn project-forms [project]
+(defn project-forms [project data-readers]
   (->> (project-paths project)
        (mapcat (fn [p]
                  (if (str/ends-with? p ".jar")
                    (utils/jar-files p analyze-source-file?)
                    (utils/all-files p analyze-source-file?))))
        (mapcat (fn [src-file]
-                 (let [{:keys [ns-name alias-map source-forms absolute-path]} (parse-file src-file)
+                 (let [{:keys [ns-name alias-map source-forms absolute-path]} (parse-file src-file data-readers)
 
                        ns {:namespace/name ns-name
                            :namespace/requires alias-map
@@ -154,7 +159,7 @@
 ;; Facts generation ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
-(def def-set #{'def 'defn 'defn- 'defmulti 'deftype 'defprotocol 'defrecod})
+(def ^:dynamic *def-set* #{'def 'defn 'defn- 'declare 'defmulti 'deftype 'defprotocol 'defrecod})
 
 (defn next-temp-id [temp-ids]
   (let [ids (->> (vals temp-ids)
@@ -219,7 +224,7 @@
   (let [vars-set (reduce (fn [r {:keys [ns form]}]
                            (if (and (list? form)
                                     (symbol? (second form))
-                                    (contains? def-set (first form)))
+                                    (contains? *def-set* (first form)))
                              (conj r {:var-symb (second form)
                                       :ns ns
                                       :line (:line (meta form))})
@@ -250,8 +255,11 @@
 (defn index-project! [base-dir]
   ;; TODO: all-projs can be derived from all-forms
   (let [all-projs (all-projects (project base-dir))
+        data-readers (->> (map data-readers all-projs)
+                          (reduce merge {}))
+        _ (println "Using data_readers " data-readers)
         all-forms (->> (vals all-projs)
-                       (mapcat (fn [p] (project-forms p))))
+                       (mapcat (fn [p] (project-forms p data-readers))))
         ;; IMPORTANT: the order here is important since they are dependent
         all-facts (-> {:facts [] :temp-ids {}}
                       (all-projects-facts all-projs)
@@ -275,11 +283,11 @@
 
   (def all-projs (all-projects proj))
 
-  (def core-cache-forms (project-forms (get all-projs 'org.clojure/core.cache)))
+  (def core-cache-forms (project-forms (get all-projs 'org.clojure/core.cache) {}))
 
   (def all-forms (->> (vals all-projs)
                       (mapcat (fn [p]
-                                (project-forms p)))
+                                (project-forms p {})))
                       doall))
 
 
