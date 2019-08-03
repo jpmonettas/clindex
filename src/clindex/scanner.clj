@@ -10,7 +10,8 @@
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as reader-types]
             [clojure.pprint :refer [pprint] :as pprint]
-            [clojure.spec.alpha :as s]))
+            [clojure.spec.alpha :as s]
+            [cljs.tagged-literals :as tags]))
 
 
 (def mvn-repos {"central" {:url "https://repo1.maven.org/maven2/"}
@@ -94,25 +95,28 @@
                 ;; this unreplaced variable
                 (let [p-map (update p-map :paths (fn [paths] (remove #(str/includes? % "${project.basedir}") paths)))]
                   [p-symb (assoc p-map
-                                :project/dependencies (project-dependencies p-symb all-projs)
+                                 :project/dependencies (or (:project/dependencies p-map)
+                                                           (project-dependencies p-symb all-projs))
                                 :project/name p-symb
                                 :project/files (->> (project-files p-map opts)
                                                     (into #{})))])))
          (into {}))))
 
-(defn topo-sort-projects-symbs
-  "Given all-projects map like returned by all-projects returns a list of project name symbols
-  in topological order."
-  [all-projs]
+(defn topo-sort
+  "Given a list of things, a name-fn and deps-fn representing a graph (where deps are pointers to other names)
+  returns a list of names in topological order."
+  [xs name-fn deps-fn]
   (dep/topo-sort
    (reduce
-    (fn [dep-graph {:keys [:project/name :project/dependencies]}]
-      (reduce (fn [dg pd]
-                (dep/depend dg name pd))
-              dep-graph
-              dependencies))
+    (fn [dep-graph x]
+      (let [name (name-fn x)
+            deps (deps-fn x)]
+        (reduce (fn [dg pd]
+                  (dep/depend dg name pd))
+                dep-graph
+                deps)))
     (dep/graph)
-    (vals all-projs))))
+    xs)))
 
 (defn build-file->project-map [all-projs]
   (reduce (fn [files-map {:keys [:project/name :project/files]}]
@@ -131,15 +135,17 @@
   (def all-projs (all-projects "/home/jmonetta/my-projects/district0x/memefactory"
                                {:platform ctnf/cljs}))
 
-  (def all-projs-topo (topo-sort-projects-symbs all-projs))
+  (def all-projs-topo (topo-sort (vals all-projs)
+                                 :project/name
+                                 :project/dependencies))
  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Namespaces scanning ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn read-namespace-forms [full-path alias-map read-opts]
-  (binding [;;reader/*data-readers* (merge tags/*cljs-data-readers* data-readers)
+(defn read-namespace-forms [full-path alias-map readers read-opts]
+  (binding [reader/*data-readers* (merge tags/*cljs-data-readers* readers)
             reader/*alias-map* alias-map
             reader/*read-eval* false]
     (try
@@ -196,36 +202,46 @@
                                                                              :sub-part x})))))
          (into {}))))
 
+(defn data-readers [all-projs]
+  {})
+
 (defn all-namespaces [all-projs {:keys [platform] :as opts}]
-  (let [file->proj (build-file->project-map all-projs)
+  (let [readers (data-readers all-projs)
+        file->proj (build-file->project-map all-projs)
         all-paths (reduce (fn [r {:keys [:paths]}]
                             (into r paths))
                           #{}
-                          (vals all-projs))
-        all-ns-decl (->> (ns-find/find-ns-decls (map io/file all-paths))
-                         (map (fn [ns-decl]
-                                (let [jar (when-let [jf (-> ns-decl meta :jar-file)]
-                                            (.getName jf))
-                                      file (-> ns-decl meta :file io/file)
-                                      file-content-path (if jar
-                                                          (utils/jar-full-path jar (.getPath file))
-                                                          file)
-                                      alias-map (aliases-from-ns-decl ns-decl)
-                                      ns-forms (read-namespace-forms file-content-path alias-map (:read-opts platform))
-                                      pub-vars (public-vars ns-forms)
-                                      priv-vars (private-vars ns-forms)]
-                                  {:namespace/name (ns-parse/name-from-ns-decl ns-decl)
-                                   :namespace/dependencies (ns-parse/deps-from-ns-decl ns-decl)
-                                   :namespace/file-content-path file-content-path
-                                   :namespace/project (file->proj (or jar (.getAbsolutePath file)))
-                                   :namespace/forms ns-forms
-                                   :namespace/public-vars pub-vars
-                                   :namespace/private-vars priv-vars}))))]
-    all-ns-decl))
+                          (vals all-projs))]
+    (->> (ns-find/find-ns-decls (map io/file all-paths) platform)
+         (map (fn [ns-decl]
+                (let [jar (when-let [jf (-> ns-decl meta :jar-file)]
+                            (.getName jf))
+                      file (-> ns-decl meta :file io/file)
+                      file-content-path (if jar
+                                          (utils/jar-full-path jar (.getPath file))
+                                          file)
+                      alias-map (aliases-from-ns-decl ns-decl)
+                      ns-forms (read-namespace-forms file-content-path alias-map readers (:read-opts platform))
+                      pub-vars (public-vars ns-forms)
+                      priv-vars (private-vars ns-forms)
+                      ns-name (ns-parse/name-from-ns-decl ns-decl)]
+                  [ns-name {:namespace/name ns-name
+                            :namespace/dependencies (ns-parse/deps-from-ns-decl ns-decl)
+                            :namespace/file-content-path file-content-path
+                            :namespace/project (file->proj (or jar (.getAbsolutePath file)))
+                            :namespace/forms ns-forms
+                            :namespace/public-vars pub-vars
+                            :namespace/private-vars priv-vars}])))
+         (into {}))))
+
 (comment
 
-  (def all-ns (all-namespaces all-projs {:platform ctnf/clj}))
+  (def all-ns (all-namespaces all-projs {:platform #_ctnf/clj ctnf/cljs}))
 
+  (def all-ns-topo (topo-sort (vals all-ns)
+                              :namespace/name
+                              :namespace/dependencies))
 
+  (map #(meta %) (ns-find/find-ns-decls [(io/file "/home/jmonetta/my-projects/district0x/memefactory/src")]))
 
   )
