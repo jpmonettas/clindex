@@ -9,13 +9,15 @@
             [clojure.tools.namespace.find :as ns-find]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as reader-types]
-            [clojure.pprint :refer [pprint] :as pprint]))
+            [clojure.pprint :refer [pprint] :as pprint]
+            [clojure.spec.alpha :as s]))
 
 
 (def mvn-repos {"central" {:url "https://repo1.maven.org/maven2/"}
                 "clojars" {:url "https://repo.clojars.org/"}})
 
-(def ^:dynamic *def-set* #{'def 'defn 'defn- 'declare 'defmulti 'deftype 'defprotocol 'defrecod})
+(def ^:dynamic *def-public-set* #{'def 'defn 'declare 'defmulti 'deftype 'defprotocol 'defrecod})
+(def ^:dynamic *def-private-set* #{'defn-})
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; Projects scanning ;;
@@ -136,28 +138,63 @@
 ;; Namespaces scanning ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn read-namespace-forms [full-path read-opts]
+(defn read-namespace-forms [full-path alias-map read-opts]
   (binding [;;reader/*data-readers* (merge tags/*cljs-data-readers* data-readers)
-            ;;reader/*alias-map* requires
-            ;;reader/*read-eval* false
-            ;;*ns* name
-            ]
+            reader/*alias-map* alias-map
+            reader/*read-eval* false]
     (try
       (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" (slurp full-path) "]"))
                             (reader/read read-opts)
-                            (mapv #(with-meta % {:type :clindex/form})))]
+                            (keep (fn [form]
+                                    (when form
+                                      (with-meta form {:type :clindex/form})))))]
         forms)
       (catch Exception e
-        (println "Error when reading the file" full-path)
-        (clojure.repl/pst e 1)))))
+        (let [{:keys [line type]} (ex-data e)]
+          (case type
+            :reader-exception
+            (do (prn "[Warning] found a problem when reading the file" full-path {:line line
+                                                                                  :alias-map alias-map})
+                (utils/print-file-lines-arround full-path line))
+
+            (throw e)))))))
 
 (defn- form-public-var
   "If form defines a public var, returns the var name, nil otherwise"
   [[symb vname]]
-  (and (*def-set* symb) vname))
+  (and (*def-public-set* symb)
+       (not (:private (meta symb)))
+       vname))
 
 (defn public-vars [ns-forms]
   (keep form-public-var ns-forms))
+
+(defn- form-private-var
+  "If form defines a private var, returns the var name, nil otherwise"
+  [[symb vname]]
+  (when (or (*def-private-set* symb)
+            (and (*def-public-set* symb)
+                 (:private (meta symb))))
+    vname))
+
+(defn private-vars [ns-forms]
+  (keep form-private-var ns-forms))
+
+(defn aliases-from-ns-decl [ns-form]
+  (let [ns-form-ast (s/conform :clojure.core.specs.alpha/ns-form (rest ns-form))
+        requires (->> (:ns-clauses ns-form-ast)
+                      (into {})
+                      :require)]
+    (->> (:body requires)
+         (keep (fn [x]
+                 (try
+                   (let [[_libspec [_lib+opts {:keys [lib options]}]] x]
+                    (when-let [alias (:as options)]
+                      [alias lib]))
+                   (catch Exception e
+                     (prn "[Warning] problem while building alias map for " {:ns-form ns-form
+                                                                             :sub-part x})))))
+         (into {}))))
 
 (defn all-namespaces [all-projs {:keys [platform] :as opts}]
   (let [file->proj (build-file->project-map all-projs)
@@ -173,18 +210,22 @@
                                       file-content-path (if jar
                                                           (utils/jar-full-path jar (.getPath file))
                                                           file)
-                                      ns-forms (read-namespace-forms file-content-path (:read-opts platform))
-                                      pub-vars (public-vars ns-forms)]
+                                      alias-map (aliases-from-ns-decl ns-decl)
+                                      ns-forms (read-namespace-forms file-content-path alias-map (:read-opts platform))
+                                      pub-vars (public-vars ns-forms)
+                                      priv-vars (private-vars ns-forms)]
                                   {:namespace/name (ns-parse/name-from-ns-decl ns-decl)
                                    :namespace/dependencies (ns-parse/deps-from-ns-decl ns-decl)
                                    :namespace/file-content-path file-content-path
-                                   :namespace/project (file->proj (or jar file))
+                                   :namespace/project (file->proj (or jar (.getAbsolutePath file)))
                                    :namespace/forms ns-forms
-                                   :namespace/public-vars pub-vars}))))]
+                                   :namespace/public-vars pub-vars
+                                   :namespace/private-vars priv-vars}))))]
     all-ns-decl))
 (comment
 
   (def all-ns (all-namespaces all-projs {:platform ctnf/clj}))
+
 
 
   )

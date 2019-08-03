@@ -1,7 +1,8 @@
 (ns clindex.utils
   (:require [ike.cljj.file :as files]
             [ike.cljj.stream :as stream]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.string :as str])
   (:import [java.io File]
            [java.util.jar JarFile]))
 
@@ -45,3 +46,11 @@
 
 (defn read-url [url]
   (java.net.URL. (str url)))
+
+(defn print-file-lines-arround [path line-num]
+  (println)
+  (doseq [[i l] (->> (str/split-lines (slurp path))
+                     (map vector (iterate inc 1))
+                     (filter (fn [[i _]] (< (- line-num 3) i (+ line-num 3)))))]
+    (println i " " l))
+  (println))
