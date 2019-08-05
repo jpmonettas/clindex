@@ -226,6 +226,7 @@
                       priv-vars (private-vars ns-forms)
                       ns-name (ns-parse/name-from-ns-decl ns-decl)]
                   [ns-name {:namespace/name ns-name
+                            :namespace/alias-map alias-map
                             :namespace/dependencies (ns-parse/deps-from-ns-decl ns-decl)
                             :namespace/file-content-path file-content-path
                             :namespace/project (file->proj (or jar (.getAbsolutePath file)))

@@ -37,8 +37,8 @@
 (defmethod print-method :clindex/form [form ^java.io.Writer w]
   (let [form (with-meta form nil)]
     (.write w (format "%s...\n"
-                      (if (> (count (pr-str form)) 20)
-                        (subs (pr-str form) 0 20)
+                      (if (> (count (pr-str form)) 40)
+                        (subs (pr-str form) 0 40)
                         (pr-str form))))))
 
 (defmethod print-method java.net.URL [o w]

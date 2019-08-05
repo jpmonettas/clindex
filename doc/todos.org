@@ -7,7 +7,7 @@
 - [X] indexer namespaces facts
 - [X] indexer namespaces deps facts
 - [X] indexer namespaces vars facts
-- [ ] indexer namespaces forms facts with extension mechanism
+- [X] indexer namespaces forms facts with extension mechanism
 - [ ] create api ns
 - [ ] refactor file story
 

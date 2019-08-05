@@ -6,7 +6,8 @@
             [clojure.tools.namespace.dependency :as dep]
             [clojure.java.io :as io]
             [datascript.core :as d]
-            [clindex.api :as capi]))
+            [clindex.api :as capi]
+            [rewrite-clj.zip :as z]))
 
 
 

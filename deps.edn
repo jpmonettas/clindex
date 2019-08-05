@@ -6,7 +6,7 @@
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
         org.clojure/tools.analyzer.jvm {:mvn/version "0.7.2"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}
-
+        rewrite-clj                    {:mvn/version "0.6.1"}
         org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}}
  :aliases
  {:test {:extra-paths ["test"]
