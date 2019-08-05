@@ -1,9 +1,16 @@
+* TODOs
 - [X] scanner projects
 - [X] scanner namespaces
 - [X] scanner separate ns priv and public vars with extension mechanism
-- [ ] indexer project facts
-- [ ] indexer file facts
-- [ ] indexer namespaces facts
-- [ ] indexer namespaces deps facts
-- [ ] indexer namespaces vars facts
+- [X] indexer project facts
+- [X] indexer file facts
+- [X] indexer namespaces facts
+- [X] indexer namespaces deps facts
+- [X] indexer namespaces vars facts
 - [ ] indexer namespaces forms facts with extension mechanism
+- [ ] create api ns
+- [ ] refactor file story
+
+* Notes
+- design for reindexing ns on change
+- allow extra schema to be merged on db creation

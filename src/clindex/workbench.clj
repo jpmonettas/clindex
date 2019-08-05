@@ -5,10 +5,18 @@
             [clojure.tools.namespace.parse :as ns-parse]
             [clojure.tools.namespace.dependency :as dep]
             [clojure.java.io :as io]
-            [clindex.core :as core]))
+            [clindex.core :as core]
+            [datascript.core :as d]
+            [clindex.api :as capi]))
+
+
+
+
 
 
 (comment
+
+  (def db-conn (d/create-conn {}))
 
   (def proj (core/project "/home/jmonetta/my-projects/clindex"))
   (def proj (core/project "/home/jmonetta/my-projects/district0x/memefactory"))
@@ -37,5 +45,36 @@
         (fn [r ns-decl]
           (assoc r (ns-parse/name-from-ns-decl ns-decl) (ns-parse/deps-from-ns-decl ns-decl) ))
         {}))
+
+    ;; all namespaces for 'org.clojure/spec.alpha project
+  (d/q '[:find ?nsn
+         :in $ ?pn
+         :where
+         [?pid :project/name ?pn]
+         [?nsid :namespace/project ?pid]
+         [?nsid :namespace/name ?nsn]]
+       @(capi/index-db)
+       'org.clojure/spec.alpha)
+
+  ;; all namespaces for all projects
+  (d/q '[:find ?pid ?pn ?nsid ?nsn
+         :where
+         [?pid :project/name ?pn]
+         [?nsid :namespace/project ?pid]
+         [?nsid :namespace/name ?nsn]]
+       @(capi/index-db))
+
+  ;; all vars for clojure.spec.alpha namespace
+  (d/q '[:find ?vn ?vl ?fname
+         :in $ ?nsn
+         :where
+         [?fid :file/name ?fname]
+         [?nid :namespace/file ?fid]
+         [?nid :namespace/name ?nsn]
+         [?vid :var/namespace ?nid]
+         [?vid :var/name ?vn]
+         [?vid :var/line ?vl]]
+       @(capi/index-db)
+       'clojure.spec.alpha)
 
   )
