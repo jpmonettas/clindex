@@ -5,7 +5,6 @@
             [clojure.tools.namespace.parse :as ns-parse]
             [clojure.tools.namespace.dependency :as dep]
             [clojure.java.io :as io]
-            [clindex.core :as core]
             [datascript.core :as d]
             [clindex.api :as capi]))
 
