@@ -1,6 +1,7 @@
 (ns clindex.indexer
   (:require [datascript.core :as d]
-            [rewrite-clj.zip :as z]))
+            [rewrite-clj.zip :as z]
+            [clojure.string :as str]))
 
 (def db-conn (d/create-conn {:project/name      {:db/cardinality :db.cardinality/one}
                              :project/depends   {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
@@ -68,6 +69,15 @@
       symb)
     symb))
 
+(defn resolve-symbol [all-ns-map ns-symb fsymb]
+  (let [ns-requires (conj (:namespace/dependencies (get all-ns-map ns-symb))
+                          'clojure.core)] ;; NOTE : not sure if this should be done here or in a more general way
+    (some (fn [rns-symb]
+            (let [{:keys [:namespace/public-vars :namespace/macros] :as rns} (get all-ns-map rns-symb)]
+              (when (contains? (into public-vars macros) fsymb)
+                (symbol (name (:namespace/name rns)) (name fsymb)))))
+      ns-requires)))
+
 (defmulti form-facts (fn [all-ns-map ctx form] (first form)))
 
 (defmethod form-facts 'clojure.spec.alpha/def
@@ -78,40 +88,70 @@
 
 (defmethod form-facts 'defn
   [all-ns-map ctx [_ fname]]
-  (println "Analyzing DEFN " fname)
+  #_(println "Analyzing DEFN " fname)
   {:facts [[:db/add 15 :function/name fname]]
    :ctx (merge ctx {:function fname})})
 
 (defmethod form-facts :default
   [all-ns-map ctx form]
-  (println "Analyzing form " form "with context " ctx)
+  #_(println "Analyzing form " form "with context " ctx)
   {:facts []
    :ctx ctx})
 
-(defn expand-form-first-symb [ns-alias-map ns-symb form]
+(defn fully-qualify-form-first-symb [all-ns-map ns-symb form]
   (if (symbol? (first form))
-    (with-meta
-     (conj (rest form) (expand-symbol-alias ns-alias-map ns-symb (first form)))
-      (meta form))
+    (let [ns (get all-ns-map ns-symb)
+          ns-alias-map (:namespace/alias-map ns)
+          ns-vars (-> (:namespace/public-vars ns)
+                      (into (:namespace/private-vars ns))
+                      (into (:namespace/macros ns)))
+          fsymb (first form)
+          fsymb-ns (when-let [s (namespace fsymb)]
+                     (symbol s))
+          fq-symb (cond
+
+                    ;; check OR
+                    (or (and fsymb-ns (contains? all-ns-map fsymb-ns)) ;; it is already fully qualified
+                        (special-symbol? fsymb)                        ;; it is a special symbol
+                        (str/starts-with? (name fsymb) "."))          ;; it is field access or method
+                    fsymb
+
+                    ;; check if it is in our namespace
+                    (contains? ns-vars fsymb)
+                    (symbol (name ns-symb) (name fsymb))
+
+                    ;; check if it is a namespaces symbol and can be expanded from aliases map
+                    (and (namespace fsymb)
+                         (contains? ns-alias-map fsymb-ns))
+                    (expand-symbol-alias ns-alias-map fsymb-ns  fsymb)
+
+                    ;; try to search in all required namespaces for a :refer-all
+                    :else
+                    (resolve-symbol all-ns-map ns-symb fsymb))]
+      (if fq-symb
+        (with-meta
+          (conj (rest form) fq-symb)
+          (meta form))
+        (println "[Warning] couldn't fully qualify symbol for " {:fsymb fsymb
+                                                                 :ns-symb ns-symb})))
     form))
 
 (defn deep-form-facts [all-ns-map ns-symb form]
-  (let [ns-alias-map (:namespace/alias-map (get all-ns-map ns-symb))]
-    (try
-      (loop [zloc (z/of-string (str (with-meta form {})))
-            facts []
-            ctx {:namespace/name ns-symb}]
-       (if (z/end? zloc)
-         facts
-         (let [{ffacts :facts fctx :ctx} (form-facts all-ns-map ctx (expand-form-first-symb ns-alias-map
-                                                                                        ns-symb
-                                                                                        (z/sexpr zloc)))]
-           (recur (z/find-next-tag zloc z/next :list)
-                  (into facts ffacts)
-                  (merge ctx fctx)))))
-      (catch Exception e
-        (prn "[Warning] couln't walk form " (with-meta form {}) "inside" ns-symb)
-        (throw e)))))
+  (try
+    (loop [zloc (z/of-string (str (with-meta form {})))
+           facts []
+           ctx {:namespace/name ns-symb}]
+      (if (z/end? zloc)
+        facts
+        (let [{ffacts :facts fctx :ctx} (form-facts all-ns-map ctx (fully-qualify-form-first-symb all-ns-map
+                                                                                                  ns-symb
+                                                                                                  (z/sexpr zloc)))]
+          (recur (z/find-next-tag zloc z/next :list)
+                 (into facts ffacts)
+                 (merge ctx fctx)))))
+    (catch Exception e
+      (prn "[Warning] couln't walk form " (with-meta form {}) "inside" ns-symb)
+      (throw e))))
 
 (defn namespace-forms-facts [all-ns-map ns-symb]
   (->> (:namespace/forms (get all-ns-map ns-symb))
@@ -152,5 +192,12 @@
   (def all-ns (scanner/all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs}))
 
   (def src-facts (source-facts all-ns))
+
+  (deep-form-facts
+   all-ns
+   'clindex.indexer
+   '(defn bla [x]
+      (let [a x]
+        (d/q (+ a 4)))))
 
   )

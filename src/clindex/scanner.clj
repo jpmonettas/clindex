@@ -18,6 +18,7 @@
                 "clojars" {:url "https://repo.clojars.org/"}})
 
 (def ^:dynamic *def-public-set* #{'def 'defn 'declare 'defmulti 'deftype 'defprotocol 'defrecod})
+(def ^:dynamic *def-macro-set* #{'defmacro})
 (def ^:dynamic *def-private-set* #{'defn-})
 
 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -173,7 +174,16 @@
        vname))
 
 (defn public-vars [ns-forms]
-  (keep form-public-var ns-forms))
+  (into #{} (keep form-public-var ns-forms)))
+
+(defn- form-macro
+  "If form defines a macro, returns the macro name, nil otherwise"
+  [[symb vname]]
+  (when (*def-macro-set* symb)
+    vname))
+
+(defn macros [ns-forms]
+  (into #{} (keep form-macro ns-forms)))
 
 (defn- form-private-var
   "If form defines a private var, returns the var name, nil otherwise"
@@ -184,7 +194,7 @@
     vname))
 
 (defn private-vars [ns-forms]
-  (keep form-private-var ns-forms))
+  (into #{} (keep form-private-var ns-forms)))
 
 (defn aliases-from-ns-decl [ns-form]
   (let [ns-form-ast (s/conform :clojure.core.specs.alpha/ns-form (rest ns-form))
@@ -232,7 +242,8 @@
                             :namespace/project (file->proj (or jar (.getAbsolutePath file)))
                             :namespace/forms ns-forms
                             :namespace/public-vars pub-vars
-                            :namespace/private-vars priv-vars}])))
+                            :namespace/private-vars priv-vars
+                            :namespace/macros (macros ns-forms)}])))
          (into {}))))
 
 (comment
