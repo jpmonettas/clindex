@@ -78,15 +78,50 @@
                 (symbol (name (:namespace/name rns)) (name fsymb)))))
       ns-requires)))
 
+(defn function-call? [all-ns-map ns-symb fq-fsymb]
+  (let [fns-symb (when-let [n (namespace fq-fsymb)]
+                   (symbol n))
+        fsymb (symbol (name fq-fsymb))]
+    (if (= fns-symb ns-symb)
+      ;; it is referring to current namespace so lets check our fns
+      (let [ns (get all-ns-map ns-symb)]
+        (contains? (into (:namespace/public-vars ns)
+                         (:namespace/private-vars ns))
+                   fsymb))
+
+      ;; it is calling other ns maybe
+      (let [ns (get all-ns-map fns-symb)]
+        (contains? (:namespace/public-vars ns) fsymb)))))
+
+(defn macro-call? [all-ns-map ns-symb fq-fsymb]
+  (let [fns-symb (when-let [n (namespace fq-fsymb)]
+                   (symbol n))
+        fsymb (symbol (name fq-fsymb))]
+    (if (= fns-symb ns-symb)
+      ;; it is referring to current namespace so lets check our fns
+      (let [ns (get all-ns-map ns-symb)]
+        (contains? (:namespace/macros ns) fsymb))
+
+      ;; it is calling other ns maybe
+      (let [ns (get all-ns-map fns-symb)]
+        (contains? (:namespace/macros ns) fsymb)))))
+
 (defmulti form-facts (fn [all-ns-map ctx form] (first form)))
 
-(defmethod form-facts 'clojure.spec.alpha/def
-  [all-ns-map ctx form]
-  #_(println "Analyzing SPEC form " form)
-  {:facts []
-   :ctx ctx})
 
-(defmethod form-facts 'defn
+(defmethod form-facts 'clojure.core/defn
+  [all-ns-map ctx [_ fname]]
+  #_(println "Analyzing DEFN " fname)
+  {:facts [[:db/add 15 :function/name fname]]
+   :ctx (merge ctx {:function fname})})
+
+(defmethod form-facts 'clojure.core/defn-
+  [all-ns-map ctx [_ fname]]
+  #_(println "Analyzing DEFN " fname)
+  {:facts [[:db/add 15 :function/name fname]]
+   :ctx (merge ctx {:function fname})})
+
+(defmethod form-facts 'defprotocol
   [all-ns-map ctx [_ fname]]
   #_(println "Analyzing DEFN " fname)
   {:facts [[:db/add 15 :function/name fname]]
@@ -94,7 +129,7 @@
 
 (defmethod form-facts :default
   [all-ns-map ctx form]
-  #_(println "Analyzing form " form "with context " ctx)
+  (println "Analyzing form " form "with context " ctx " and meta " (meta form))
   {:facts []
    :ctx ctx})
 
@@ -131,9 +166,15 @@
       (if fq-symb
         (with-meta
           (conj (rest form) fq-symb)
-          (meta form))
-        (println "[Warning] couldn't fully qualify symbol for " {:fsymb fsymb
-                                                                 :ns-symb ns-symb})))
+          (cond-> (meta form)
+            (function-call? all-ns-map ns-symb fq-symb) (assoc :fn-call?    true)
+            (macro-call? all-ns-map ns-symb fq-symb)    (assoc :macro-call? true)))
+        (do
+          #_(println "[Warning] couldn't fully qualify symbol for " {:fsymb fsymb
+                                                                     :ns-symb ns-symb})
+          ;; if we couldn't resolve the symbol lets leave it as it is
+          ;; stuff like defprotoco, defrecord or protocol forms will be here
+          fsymb)))
     form))
 
 (defn deep-form-facts [all-ns-map ns-symb form]
@@ -197,6 +238,13 @@
    all-ns
    'clindex.indexer
    '(defn bla [x]
+      (let [a x]
+        (d/q (+ a 4)))))
+
+  (deep-form-facts
+   all-ns
+   'clindex.indexer
+   '(defprotocol  bla [x]
       (let [a x]
         (d/q (+ a 4)))))
 

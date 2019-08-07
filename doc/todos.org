@@ -2,14 +2,17 @@
 - [X] scanner projects
 - [X] scanner namespaces
 - [X] scanner separate ns priv and public vars with extension mechanism
+- [ ] scanner add ns imports
 - [X] indexer project facts
 - [X] indexer file facts
 - [X] indexer namespaces facts
 - [X] indexer namespaces deps facts
 - [X] indexer namespaces vars facts
 - [X] indexer namespaces forms facts with extension mechanism
+- [ ] indexer process imports aliases
 - [ ] create api ns
 - [ ] refactor file story
+
 
 * Notes
 - design for reindexing ns on change
