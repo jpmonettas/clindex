@@ -3,16 +3,21 @@
             [rewrite-clj.zip :as z]
             [clojure.string :as str]))
 
-(def db-conn (d/create-conn {:project/name      {:db/cardinality :db.cardinality/one}
-                             :project/depends   {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-                             :file/name         {:db/cardinality :db.cardinality/one}
-                             :namespace/name    {:db/cardinality :db.cardinality/one}
-                             :namespace/project {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :namespace/file    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :var/name          {:db/cardinality :db.cardinality/one}
-                             :var/line          {:db/cardinality :db.cardinality/one}
-                             :var/namespace     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :var/public?       {:db/cardinality :db.cardinality/one}}))
+(def db-conn (d/create-conn {:project/name       {:db/cardinality :db.cardinality/one}
+                             :project/depends    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+                             :file/name          {:db/cardinality :db.cardinality/one}
+                             :namespace/name     {:db/cardinality :db.cardinality/one}
+                             :namespace/project  {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :namespace/file     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :var/name           {:db/cardinality :db.cardinality/one}
+                             :var/line           {:db/cardinality :db.cardinality/one}
+                             :var/namespace      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :var/public?        {:db/cardinality :db.cardinality/one}
+                             :function/var       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :function/namespace {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :function/calls     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+                             :function/macro?    {:db/cardinality :db.cardinality/one}
+                             }))
 
 (defn stable-id [& args]
   (Math/abs (apply hash [args])))
@@ -28,6 +33,9 @@
 
 (defn var-id [namespace-symb var-symb]
   (stable-id :var namespace-symb var-symb))
+
+(defn function-id [namespace-symb var-symb]
+  (stable-id :function namespace-symb var-symb))
 
 
 (defn project-facts [{:keys [:project/name :project/dependencies] :as proj}]
@@ -108,30 +116,46 @@
 
 (defmulti form-facts (fn [all-ns-map ctx form] (first form)))
 
+(defn defn-facts [ctx ns-name fname macro?]
+  {:facts (let [fid (function-id ns-name fname)]
+            (cond-> [[:db/add fid :function/var (var-id ns-name fname)]
+                     [:db/add fid :function/namespace (namespace-id ns-name)]]
+              macro? (into [[:db/add fid :funciton/macro? true]])))
+   :ctx (merge ctx {:in-function fname})})
 
 (defmethod form-facts 'clojure.core/defn
-  [all-ns-map ctx [_ fname]]
-  #_(println "Analyzing DEFN " fname)
-  {:facts [[:db/add 15 :function/name fname]]
-   :ctx (merge ctx {:function fname})})
+  [all-ns-map {:keys [:namespace/name] :as ctx} [_ fname]]
+  (defn-facts ctx name fname false))
 
 (defmethod form-facts 'clojure.core/defn-
   [all-ns-map ctx [_ fname]]
-  #_(println "Analyzing DEFN " fname)
-  {:facts [[:db/add 15 :function/name fname]]
-   :ctx (merge ctx {:function fname})})
+  (defn-facts ctx name fname false))
+
+(defmethod form-facts 'clojure.core/defmacro
+  [all-ns-map ctx [_ fname]]
+  (defn-facts ctx name fname true))
 
 (defmethod form-facts 'defprotocol
-  [all-ns-map ctx [_ fname]]
-  #_(println "Analyzing DEFN " fname)
-  {:facts [[:db/add 15 :function/name fname]]
-   :ctx (merge ctx {:function fname})})
+  [all-ns-map ctx [_ pname]]
+  {:facts []
+   :ctx (merge ctx {:in-protocol pname})})
 
 (defmethod form-facts :default
   [all-ns-map ctx form]
-  (println "Analyzing form " form "with context " ctx " and meta " (meta form))
-  {:facts []
-   :ctx ctx})
+  #_(println "Analyzing form " form "with context " ctx " and meta " (meta form))
+  (let [{:keys [fn-call? macro-call?]} (meta form)
+        {in-function :in-function ns-name :namespace/name} ctx
+        facts (cond-> []
+                fn-call? (into (let [in-fn-id (function-id ns-name in-function)
+                                     fn-call-fq-symb (first form)
+                                     fn-call-symb-ns (when-let [n (namespace fn-call-fq-symb)]
+                                                       (symbol n))
+                                     fn-call-symb (symbol (name fn-call-fq-symb))
+                                     fn-call-id (function-id fn-call-symb-ns fn-call-symb)]
+                                 [[:db/add in-fn-id :function/calls fn-call-id]
+                                  [:db/add fn-call-id :function/var (var-id fn-call-symb-ns fn-call-symb)]])))]
+    {:facts facts
+     :ctx ctx}))
 
 (defn fully-qualify-form-first-symb [all-ns-map ns-symb form]
   (if (symbol? (first form))
@@ -174,7 +198,7 @@
                                                                      :ns-symb ns-symb})
           ;; if we couldn't resolve the symbol lets leave it as it is
           ;; stuff like defprotoco, defrecord or protocol forms will be here
-          fsymb)))
+          form)))
     form))
 
 (defn deep-form-facts [all-ns-map ns-symb form]
@@ -182,11 +206,11 @@
     (loop [zloc (z/of-string (str (with-meta form {})))
            facts []
            ctx {:namespace/name ns-symb}]
-      (if (z/end? zloc)
+      (if (or (z/end? zloc) (not (and (list? (z/sexpr zloc))
+                                      (not-empty (z/sexpr zloc)))))
         facts
-        (let [{ffacts :facts fctx :ctx} (form-facts all-ns-map ctx (fully-qualify-form-first-symb all-ns-map
-                                                                                                  ns-symb
-                                                                                                  (z/sexpr zloc)))]
+        (let [ form' (fully-qualify-form-first-symb all-ns-map ns-symb (z/sexpr zloc))
+              {ffacts :facts fctx :ctx} (form-facts all-ns-map ctx form')]
           (recur (z/find-next-tag zloc z/next :list)
                  (into facts ffacts)
                  (merge ctx fctx)))))
@@ -248,4 +272,17 @@
       (let [a x]
         (d/q (+ a 4)))))
 
+  (fully-qualify-form-first-symb
+   all-ns-map
+   'clojure.data.xml.jvm.emit
+   '(ns clojure.data.xml.jvm.emit
+      "JVM implementation of the emitter details"
+      {:author "Herwig Hochleitner"}
+      (:require (clojure.data.xml [name :refer [qname-uri qname-local separate-xmlns gen-prefix *gen-prefix-counter*]] [pu-map :as pu] [protocols :refer [AsXmlString xml-str]] [impl :refer [extend-protocol-fns b64-encode compile-if]] event) [clojure.string :as str])
+      (:import (java.io OutputStreamWriter Writer StringWriter) (java.nio.charset Charset) (java.util.logging Logger Level) (javax.xml.namespace NamespaceContext QName) (javax.xml.stream XMLStreamWriter XMLOutputFactory) (javax.xml.transform OutputKeys Transformer TransformerFactory) (clojure.data.xml.event StartElementEvent EmptyElementEvent EndElementEvent CharsEvent CDataEvent CommentEvent QNameEvent) (clojure.lang BigInt) (java.net URI URL) (java.util Date) (java.text DateFormat SimpleDateFormat))))
+
+  (fully-qualify-form-first-symb
+   all-ns-map
+   'clojure.data.xml.jvm.emit
+   '(clojure.data.xml [name :refer [qname-uri qname-local separate-xmlns gen-prefix *gen-prefix-counter*]] [pu-map :as pu] [protocols :refer [AsXmlString xml-str]] [impl :refer [extend-protocol-fns b64-encode compile-if]] event))
   )

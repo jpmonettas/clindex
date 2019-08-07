@@ -27,6 +27,45 @@
   "Searches the index for a var, returns a collection of maps containing
   :name, :ns, :project :file and :line."
   [search-term]
+  (let [q-result (d/q '[:find ?vn ?nsn ?pname ?vl #_?fname
+                        :in $ ?st
+                        :where
+                        #_[?fid :file/name ?fname]
+                        [?pid :project/name ?pname]
+                        [?nid :namespace/file ?fid]
+                        [?nid :namespace/project ?pid]
+                        [?nid :namespace/name ?nsn]
+                        [?vid :var/namespace ?nid]
+                        [?vid :var/name ?vn]
+                        [?vid :var/line ?vl]
+                        [(str/starts-with? ?vn ?st)]]
+                      @indexer/db-conn
+                      search-term)]
+    (map #(zipmap [:name :ns :project :line :file] %) q-result)))
+
+(defn fn-calls
+  ""
+  [ns fname]
+  (let [q-result (d/q '[:find ?fc-ns ?fc-name
+                        :in $ ?nsn ?fn
+                        :where
+                        [?nid :namespace/name ?nsn]
+                        [?vid :var/namespace ?nid]
+                        [?fid :function/var ?vid]
+                        [?vid :var/name ?fn]
+                        [?fid :function/calls ?fc-id]
+                        [?fc-id :function/var ?fc-vid]
+                        [?fc-vid :var/name ?fc-name]
+                        [?fc-vid :var/namespace ?fc-ns-id]
+                        [?fc-ns-id :namespace/name ?fc-ns]]
+                      @indexer/db-conn
+                      'clindex.indexer
+                      'namespace-facts)]
+    (map #(zipmap [:ns :fn-name] %) q-result)))
+
+#_(defn x-refs
+  ""
+  [fname]
   (let [q-result (d/q '[:find ?vn ?nsn ?pname ?vl ?fname
                         :in $ ?st
                         :where
@@ -47,7 +86,8 @@
 
   (def tx-result (index-project! "/home/jmonetta/my-projects/clindex" :clj))
   (search-var "eval")
+  (fn-calls 'clindex.indexer 'namespace-facts)
 
   (def tx-result (index-project! "/home/jmonetta/my-projects/district0x/memefactory" :cljs))
   (search-var "start")
- )
+  )

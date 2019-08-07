@@ -12,6 +12,7 @@
 - [ ] indexer process imports aliases
 - [ ] create api ns
 - [ ] refactor file story
+- [ ] improve the logs story
 
 
 * Notes
