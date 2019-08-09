@@ -2,19 +2,21 @@
 - [X] scanner projects
 - [X] scanner namespaces
 - [X] scanner separate ns priv and public vars with extension mechanism
-- [ ] scanner add ns imports
+- [ ] scanner add ns :imports
 - [X] indexer project facts
 - [X] indexer file facts
 - [X] indexer namespaces facts
 - [X] indexer namespaces deps facts
 - [X] indexer namespaces vars facts
 - [X] indexer namespaces forms facts with extension mechanism
-- [ ] indexer process imports aliases
+- [ ] indexer process :imports aliases
 - [ ] create api ns
 - [ ] refactor file story
 - [ ] improve the logs story
+- [ ] redesign schema with isComponent so we can cascade retract a file > ns > [var var-ref] > ...
+- [ ] prepare scanner and indexer api for reindexing on file change
+- [ ] support extra schema to be merged on db creation
+- [ ] fix "clindex.indexer" ns file indexing
 
 
 * Notes
-- design for reindexing ns on change
-- allow extra schema to be merged on db creation

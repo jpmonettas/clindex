@@ -47,59 +47,36 @@
      (map #(zipmap [:name :ns :project :line :file] %))
      (pprint/print-table))))
 
-(defn fn-calls
-  ""
-  [ns fname]
-  (let [q-result (d/q '[:find ?fc-ns ?fc-name
-                        :in $ ?nsn ?fn
-                        :where
-                        [?nid :namespace/name ?nsn]
-                        [?vid :var/namespace ?nid]
-                        [?fid :function/var ?vid]
-                        [?vid :var/name ?fn]
-                        [?fid :function/calls ?fc-id]
-                        [?fc-id :function/var ?fc-vid]
-                        [?fc-vid :var/name ?fc-name]
-                        [?fc-vid :var/namespace ?fc-ns-id]
-                        [?fc-ns-id :namespace/name ?fc-ns]]
-                      @indexer/db-conn
-                      ns
-                      fname)]
-    (->> q-result
-         (map #(zipmap [:ns :fn-name] %))
-         (pprint/print-table))))
-
 (defn x-refs
-  ""
-  [ns fname]
-  (let [q-result (d/q '[:find ?fc-ns ?fc-name
-                        :in $ ?nsn ?fn
+  "Searches and prints a table with all the namespaces,lines,columns that references this ns/vname"
+  [ns vname]
+  (let [q-result (d/q '[:find ?vrnsn ?vn ?vrline ?vrcolumn
+                        :in $ ?nsn ?vn
                         :where
 
                         [?nid :namespace/name ?nsn]
                         [?vid :var/namespace ?nid]
-                        [?fid :function/var ?vid]
-                        [?vid :var/name ?fn]
+                        [?vid :var/name ?vn]
 
-                        [?fc-id :function/calls ?fid]
-
-                        [?fc-id :function/var ?fc-vid]
-                        [?fc-vid :var/name ?fc-name]
-
-                        [?fc-vid :var/namespace ?fc-ns-id]
-                        [?fc-ns-id :namespace/name ?fc-ns]]
+                        [?vrid :var-ref/var ?vid]
+                        [?vrid :var-ref/namespace ?vrnid]
+                        [?vrid :var-ref/line ?vrline]
+                        [?vrid :var-ref/column ?vrcolumn]
+                        [?vrnid :namespace/name ?vrnsn]]
                       @indexer/db-conn
                       ns
-                      fname)]
+                      vname)]
     (->> q-result
-         (map #(zipmap [:ns :fn-name] %))
+         (map #(zipmap [:ns :var-name :line :column] %))
          (pprint/print-table))))
 
 (comment
 
-  (def tx-result (index-project! "/home/jmonetta/my-projects/clindex" :clj))
+  (def tx-result (time (index-project! "/home/jmonetta/my-projects/clindex" :clj)))
+
+
+
   (search-var "eval")
-  (fn-calls 'clindex.indexer 'namespace-facts)
   (x-refs 'clindex.indexer 'namespace-facts)
 
   (def tx-result (index-project! "/home/jmonetta/my-projects/district0x/memefactory" :cljs))

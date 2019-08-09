@@ -1,7 +1,9 @@
 (ns clindex.indexer
   (:require [datascript.core :as d]
-            [rewrite-clj.zip :as z]
-            [clojure.string :as str]))
+            #_[rewrite-clj.zip :as z]
+            [clojure.zip :as zip]
+            [clojure.string :as str]
+            [clindex.utils :as utils]))
 
 (def db-conn (d/create-conn {:project/name       {:db/cardinality :db.cardinality/one}
                              :project/depends    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
@@ -15,8 +17,12 @@
                              :var/public?        {:db/cardinality :db.cardinality/one}
                              :function/var       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
                              :function/namespace {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :function/calls     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
                              :function/macro?    {:db/cardinality :db.cardinality/one}
+
+                             :var-ref/line           {:db/cardinality :db.cardinality/one}
+                             :var-ref/col            {:db/cardinality :db.cardinality/one}
+                             :var-ref/var            {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :var-ref/namespace      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
                              }))
 
 (defn stable-id [& args]
@@ -33,6 +39,9 @@
 
 (defn var-id [namespace-symb var-symb]
   (stable-id :var namespace-symb var-symb))
+
+(defn var-ref-id [namespace-symb var-symb ref-ns-symb ref-line ref-col]
+  (stable-id :var-ref namespace-symb var-symb ref-ns-symb ref-line ref-col))
 
 (defn function-id [namespace-symb var-symb]
   (stable-id :function namespace-symb var-symb))
@@ -143,19 +152,37 @@
 (defmethod form-facts :default
   [all-ns-map ctx form]
   #_(println "Analyzing form " form "with context " ctx " and meta " (meta form))
-  (let [{:keys [fn-call? macro-call?]} (meta form)
-        {in-function :in-function ns-name :namespace/name} ctx
-        facts (cond-> []
-                fn-call? (into (let [in-fn-id (function-id ns-name in-function)
-                                     fn-call-fq-symb (first form)
-                                     fn-call-symb-ns (when-let [n (namespace fn-call-fq-symb)]
-                                                       (symbol n))
-                                     fn-call-symb (symbol (name fn-call-fq-symb))
-                                     fn-call-id (function-id fn-call-symb-ns fn-call-symb)]
-                                 [[:db/add in-fn-id :function/calls fn-call-id]
-                                  [:db/add fn-call-id :function/var (var-id fn-call-symb-ns fn-call-symb)]])))]
-    {:facts facts
-     :ctx ctx}))
+  {:facts []
+   :ctx ctx})
+
+(defn fully-qualify-symb [all-ns-map ns-symb symb]
+  (let [ns (get all-ns-map ns-symb)
+        ns-alias-map (:namespace/alias-map ns)
+        ns-vars (-> (:namespace/public-vars ns)
+                    (into (:namespace/private-vars ns))
+                    (into (:namespace/macros ns)))
+        symb-ns (when-let [s (namespace symb)]
+                  (symbol s))]
+    (cond
+
+      ;; check OR
+      (or (and symb-ns (contains? all-ns-map symb-ns)) ;; it is already fully qualified
+          (special-symbol? symb)                        ;; it is a special symbol
+          (str/starts-with? (name symb) "."))          ;; it is field access or method
+      symb
+
+      ;; check if it is in our namespace
+      (contains? ns-vars symb)
+      (symbol (name ns-symb) (name symb))
+
+      ;; check if it is a namespaces symbol and can be expanded from aliases map
+      (and (namespace symb)
+           (contains? ns-alias-map symb-ns))
+      (expand-symbol-alias ns-alias-map symb-ns symb)
+
+      ;; try to search in all required namespaces for a :refer-all
+      :else
+      (resolve-symbol all-ns-map ns-symb symb))))
 
 (defn fully-qualify-form-first-symb [all-ns-map ns-symb form]
   (if (symbol? (first form))
@@ -167,26 +194,7 @@
           fsymb (first form)
           fsymb-ns (when-let [s (namespace fsymb)]
                      (symbol s))
-          fq-symb (cond
-
-                    ;; check OR
-                    (or (and fsymb-ns (contains? all-ns-map fsymb-ns)) ;; it is already fully qualified
-                        (special-symbol? fsymb)                        ;; it is a special symbol
-                        (str/starts-with? (name fsymb) "."))          ;; it is field access or method
-                    fsymb
-
-                    ;; check if it is in our namespace
-                    (contains? ns-vars fsymb)
-                    (symbol (name ns-symb) (name fsymb))
-
-                    ;; check if it is a namespaces symbol and can be expanded from aliases map
-                    (and (namespace fsymb)
-                         (contains? ns-alias-map fsymb-ns))
-                    (expand-symbol-alias ns-alias-map fsymb-ns  fsymb)
-
-                    ;; try to search in all required namespaces for a :refer-all
-                    :else
-                    (resolve-symbol all-ns-map ns-symb fsymb))]
+          fq-symb (fully-qualify-symb all-ns-map fsymb-ns fsymb)]
       (if fq-symb
         (with-meta
           (conj (rest form) fq-symb)
@@ -203,31 +211,75 @@
 
 (defn deep-form-facts [all-ns-map ns-symb form]
   (try
-    (loop [zloc (z/of-string (str (with-meta form {})))
+    (loop [zloc (utils/code-zipper form)
            facts []
            ctx {:namespace/name ns-symb}]
-      (if (or (z/end? zloc) (not (and (list? (z/sexpr zloc))
-                                      (not-empty (z/sexpr zloc)))))
+      (if (or (zip/end? zloc) (not (and (list? (zip/node zloc))
+                                        (not-empty (zip/node zloc)))))
         facts
-        (let [form' (fully-qualify-form-first-symb all-ns-map ns-symb (z/sexpr zloc))
+        (let [form' (fully-qualify-form-first-symb all-ns-map ns-symb (zip/node zloc))
               {ffacts :facts fctx :ctx} (form-facts all-ns-map ctx form')]
-          (recur (z/find-next-tag zloc z/next :list)
+          (recur (utils/move-zipper-to-next zloc list?)
                  (into facts ffacts)
                  (merge ctx fctx)))))
     (catch Exception e
       (prn "[Warning] couln't walk form " (with-meta form {}) "inside" ns-symb)
       (throw e))))
 
+(defn all-vars [all-ns-map]
+  (->> (vals all-ns-map)
+       (mapcat (fn [ns]
+                 (let [ns-vars (-> (:namespace/public-vars ns)
+                                   (into (:namespace/private-vars ns))
+                                   (into (:namespace/macros ns)))]
+                   (map (fn [v]
+                          [(:namespace/name ns) v])
+                        ns-vars))))
+       (into #{})))
+
+(defn split-symb-namespace [fq-symb]
+  (when fq-symb
+    (->> ((juxt namespace name) fq-symb)
+         (mapv #(when % (symbol %)))
+         (into []))))
+
+(defn form-vars-refs-facts [all-ns-map ns-symb form]
+  (let [is-var (all-vars all-ns-map)]
+    (loop [zloc (utils/code-zipper form)
+           facts []]
+     (if (zip/end? zloc)
+       facts
+       (let [token (zip/node zloc)
+             var (when (symbol? token)
+                   (let [fq-symb (fully-qualify-symb all-ns-map ns-symb token)]
+                     (is-var (split-symb-namespace fq-symb))))]
+         (recur (utils/move-zipper-to-next zloc symbol?)
+                (if var
+                  (let [[var-ns var-symb] var
+                        {:keys [line column]} (meta (zip/node zloc))
+                        vr-id (var-ref-id var-ns var-symb ns-symb line column)]
+                    (into facts (cond-> [[:db/add vr-id :var-ref/var (var-id var-ns var-symb)]
+                                         [:db/add vr-id :var-ref/namespace (namespace-id ns-symb)]]
+                                  line (into [[:db/add vr-id :var-ref/line line]])
+                                  column (into [[:db/add vr-id :var-ref/column column]]))))
+                  facts)))))))
+
 (defn namespace-forms-facts [all-ns-map ns-symb]
   (->> (:namespace/forms (get all-ns-map ns-symb))
        (mapcat (partial deep-form-facts all-ns-map ns-symb))))
 
+(defn namespace-vars-refs-facts [all-ns-map ns-symb]
+  (->> (:namespace/forms (get all-ns-map ns-symb))
+       (mapcat (partial form-vars-refs-facts all-ns-map ns-symb))))
+
 (defn source-facts [all-ns-map]
   (let [all-ns-facts (mapcat namespace-facts (vals all-ns-map))
-        all-ns-form-facts (mapcat (fn [[ns-symb _]] (namespace-forms-facts all-ns-map ns-symb)) all-ns-map)]
+        all-ns-form-facts (mapcat (fn [[ns-symb _]] (namespace-forms-facts all-ns-map ns-symb)) all-ns-map)
+        all-ns-vars-refs-facts (mapcat (fn [[ns-symb _]] (namespace-vars-refs-facts all-ns-map ns-symb)) all-ns-map)]
     (-> []
         (into all-ns-facts)
-        (into all-ns-form-facts))))
+        (into all-ns-form-facts)
+        (into all-ns-vars-refs-facts))))
 
 (defn check-facts [tx-data]
   (doseq [[_ _ _ v :as f] tx-data]
@@ -248,13 +300,13 @@
 
 (comment
 
-  (require '[clindex.scanner :as scanner])
-  (require '[clojure.tools.namespace.find :as ctnf])
+  (do (require '[clindex.scanner :as scanner])
+      (require '[clojure.tools.namespace.find :as ctnf])
 
-  (def all-projs (scanner/all-projects "/home/jmonetta/my-projects/clindex"
-                                       {:platform ctnf/clj}))
+      (def all-projs (scanner/all-projects "/home/jmonetta/my-projects/clindex"
+                                           {:platform ctnf/clj}))
 
-  (def all-ns (scanner/all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs}))
+      (def all-ns (scanner/all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs})))
 
   (def src-facts (source-facts all-ns))
 
@@ -271,6 +323,15 @@
    '(defprotocol  bla [x]
       (let [a x]
         (d/q (+ a 4)))))
+
+  (form-vars-refs-facts
+   all-ns
+   'clindex.indexer
+   '(defn bla [x]
+      (map namespace-facts 1 2)
+      (let [a x]
+        (d/q (+ a 4)))))
+
 
   (fully-qualify-form-first-symb
    all-ns-map

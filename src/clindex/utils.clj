@@ -2,7 +2,8 @@
   (:require [ike.cljj.file :as files]
             [ike.cljj.stream :as stream]
             [clojure.java.io :as io]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [clojure.zip :as zip])
   (:import [java.io File]
            [java.util.jar JarFile]))
 
@@ -54,3 +55,19 @@
                      (filter (fn [[i _]] (< (- line-num 3) i (+ line-num 3)))))]
     (println i " " l))
   (println))
+
+;; TODO: improve this!
+(defn code-zipper
+  "Returns a zipper for nested sequences, given a root sequence"
+  [root]
+  (zip/zipper coll?
+              seq
+              (fn [node children] (with-meta children (meta node)))
+              root))
+
+(defn move-zipper-to-next [zloc pred]
+  (loop [z (zip/next zloc)]
+    (if (or (zip/end? z)
+            (pred (zip/node z)))
+      z
+      (recur (zip/next z)))))
