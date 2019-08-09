@@ -28,10 +28,10 @@
   "Searches the index for a var, and prints a table containing
   :name, :ns, :project :file and :line."
   [search-term]
-  (let [q-result (d/q '[:find ?vn ?nsn ?pname ?vl #_?fname
+  (let [q-result (d/q '[:find ?vn ?nsn ?pname ?vl ?fname
                         :in $ ?st
                         :where
-                        #_[?fid :file/name ?fname]
+                        [(get-else $ ?fid :file/name "N/A") ?fname] ;; while we fix the file issue
                         [?pid :project/name ?pname]
                         [?nid :namespace/file ?fid]
                         [?nid :namespace/project ?pid]
@@ -50,7 +50,7 @@
 (defn x-refs
   "Searches and prints a table with all the namespaces,lines,columns that references this ns/vname"
   [ns vname]
-  (let [q-result (d/q '[:find ?vrnsn ?vn ?vrline ?vrcolumn
+  (let [q-result (d/q '[:find ?pname ?vrnsn ?vn ?vrline ?vrcolumn ?fname
                         :in $ ?nsn ?vn
                         :where
 
@@ -62,12 +62,16 @@
                         [?vrid :var-ref/namespace ?vrnid]
                         [?vrid :var-ref/line ?vrline]
                         [?vrid :var-ref/column ?vrcolumn]
-                        [?vrnid :namespace/name ?vrnsn]]
+                        [?vrnid :namespace/name ?vrnsn]
+                        [?pid :project/name ?pname]
+                        [?vrnid :namespace/project ?pid]
+                        [?vrnid :namespace/file ?fid]
+                        [(get-else $ ?fid :file/name "N/A") ?fname]] ;; while we fix the file issue
                       @indexer/db-conn
                       ns
                       vname)]
     (->> q-result
-         (map #(zipmap [:ns :var-name :line :column] %))
+         (map #(zipmap [:project :ns :var-name :line :column :file] %))
          (pprint/print-table))))
 
 (comment
@@ -75,10 +79,10 @@
   (def tx-result (time (index-project! "/home/jmonetta/my-projects/clindex" :clj)))
 
 
-
   (search-var "eval")
   (x-refs 'clindex.indexer 'namespace-facts)
 
-  (def tx-result (index-project! "/home/jmonetta/my-projects/district0x/memefactory" :cljs))
+  (def tx-result (time (index-project! "/home/jmonetta/my-projects/district0x/memefactory" :cljs)))
   (search-var "start")
+  (x-refs 'cljs-web3.eth 'block-number)
   )

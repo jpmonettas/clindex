@@ -25,7 +25,7 @@
 ;; Projects scanning ;;
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(def main-project-symb 'clindex.core/main-project)
+(def main-project-symb 'clindex/main-project)
 
 
 (defn- project-dependencies [project-symbol projects-map]
