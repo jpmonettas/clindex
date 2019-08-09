@@ -209,7 +209,7 @@
       (if (or (z/end? zloc) (not (and (list? (z/sexpr zloc))
                                       (not-empty (z/sexpr zloc)))))
         facts
-        (let [ form' (fully-qualify-form-first-symb all-ns-map ns-symb (z/sexpr zloc))
+        (let [form' (fully-qualify-form-first-symb all-ns-map ns-symb (z/sexpr zloc))
               {ffacts :facts fctx :ctx} (form-facts all-ns-map ctx form')]
           (recur (z/find-next-tag zloc z/next :list)
                  (into facts ffacts)
