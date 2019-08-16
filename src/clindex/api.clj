@@ -50,7 +50,7 @@
 (defn x-refs
   "Searches and prints a table with all the namespaces,lines,columns that references this ns/vname"
   [ns vname]
-  (let [q-result (d/q '[:find ?pname ?vrnsn ?vn ?vrline ?vrcolumn ?fname
+  (let [q-result (d/q '[:find ?pname ?vrnsn ?vn ?in-fn ?vrline ?vrcolumn ?fname
                         :in $ ?nsn ?vn
                         :where
 
@@ -62,6 +62,9 @@
                         [?vrid :var-ref/namespace ?vrnid]
                         [?vrid :var-ref/line ?vrline]
                         [?vrid :var-ref/column ?vrcolumn]
+                        [?vrid :var-ref/in-function ?fnid]
+                        [?fnid :function/var ?fnvid]
+                        [?fnvid :var/name ?in-fn]
                         [?vrnid :namespace/name ?vrnsn]
                         [?pid :project/name ?pname]
                         [?vrnid :namespace/project ?pid]
@@ -71,7 +74,7 @@
                       ns
                       vname)]
     (->> q-result
-         (map #(zipmap [:project :ns :var-name :line :column :file] %))
+         (map #(zipmap [:project :ns :var-name :in-fn :line :column :file] %))
          (pprint/print-table))))
 
 (comment

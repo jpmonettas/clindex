@@ -5,24 +5,24 @@
             [clojure.string :as str]
             [clindex.utils :as utils]))
 
-(def db-conn (d/create-conn {:project/name       {:db/cardinality :db.cardinality/one}
-                             :project/depends    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-                             :file/name          {:db/cardinality :db.cardinality/one}
-                             :namespace/name     {:db/cardinality :db.cardinality/one}
-                             :namespace/project  {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :namespace/file     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :var/name           {:db/cardinality :db.cardinality/one}
-                             :var/line           {:db/cardinality :db.cardinality/one}
-                             :var/namespace      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :var/public?        {:db/cardinality :db.cardinality/one}
-                             :function/var       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :function/namespace {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :function/macro?    {:db/cardinality :db.cardinality/one}
-
+(def db-conn (d/create-conn {:project/name           {:db/cardinality :db.cardinality/one}
+                             :project/depends        {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+                             :file/name              {:db/cardinality :db.cardinality/one}
+                             :namespace/name         {:db/cardinality :db.cardinality/one}
+                             :namespace/project      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :namespace/file         {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :var/name               {:db/cardinality :db.cardinality/one}
+                             :var/line               {:db/cardinality :db.cardinality/one}
+                             :var/namespace          {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :var/public?            {:db/cardinality :db.cardinality/one}
+                             :function/var           {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :function/namespace     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :function/macro?        {:db/cardinality :db.cardinality/one}
                              :var-ref/line           {:db/cardinality :db.cardinality/one}
                              :var-ref/col            {:db/cardinality :db.cardinality/one}
                              :var-ref/var            {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
                              :var-ref/namespace      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                             :var-ref/in-function    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
                              }))
 
 (defn stable-id [& args]
@@ -209,23 +209,6 @@
           form)))
     form))
 
-(defn deep-form-facts [all-ns-map ns-symb form]
-  (try
-    (loop [zloc (utils/code-zipper form)
-           facts []
-           ctx {:namespace/name ns-symb}]
-      (if (or (zip/end? zloc) (not (and (list? (zip/node zloc))
-                                        (not-empty (zip/node zloc)))))
-        facts
-        (let [form' (fully-qualify-form-first-symb all-ns-map ns-symb (zip/node zloc))
-              {ffacts :facts fctx :ctx} (form-facts all-ns-map ctx form')]
-          (recur (utils/move-zipper-to-next zloc list?)
-                 (into facts ffacts)
-                 (merge ctx fctx)))))
-    (catch Exception e
-      (prn "[Warning] couln't walk form " (with-meta form {}) "inside" ns-symb)
-      (throw e))))
-
 (defn all-vars [all-ns-map]
   (->> (vals all-ns-map)
        (mapcat (fn [ns]
@@ -243,43 +226,57 @@
          (mapv #(when % (symbol %)))
          (into []))))
 
-(defn form-vars-refs-facts [all-ns-map ns-symb form]
+(defn deep-form-facts [all-ns-map ns-symb form]
   (let [is-var (all-vars all-ns-map)]
     (loop [zloc (utils/code-zipper form)
-           facts []]
+           facts []
+           ctx {:namespace/name ns-symb}]
      (if (zip/end? zloc)
        facts
-       (let [token (zip/node zloc)
-             var (when (symbol? token)
-                   (let [fq-symb (fully-qualify-symb all-ns-map ns-symb token)]
-                     (is-var (split-symb-namespace fq-symb))))]
-         (recur (utils/move-zipper-to-next zloc symbol?)
-                (if var
-                  (let [[var-ns var-symb] var
-                        {:keys [line column]} (meta (zip/node zloc))
-                        vr-id (var-ref-id var-ns var-symb ns-symb line column)]
-                    (into facts (cond-> [[:db/add vr-id :var-ref/var (var-id var-ns var-symb)]
-                                         [:db/add vr-id :var-ref/namespace (namespace-id ns-symb)]]
-                                  line (into [[:db/add vr-id :var-ref/line line]])
-                                  column (into [[:db/add vr-id :var-ref/column column]]))))
-                  facts)))))))
+       (let [token (zip/node zloc)]
+
+         (cond
+           ;; we are looking at a form
+           ;; lets collect this form facts
+           (list? token)
+           (let [form' (fully-qualify-form-first-symb all-ns-map ns-symb token)
+                 {ffacts :facts fctx :ctx} (form-facts all-ns-map ctx form')]
+             (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
+                    (into facts ffacts)
+                    (merge ctx fctx)))
+
+           ;; we are looking at a symbol
+           (symbol? token)
+           (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
+                  (let [fq-symb (fully-qualify-symb all-ns-map ns-symb token)
+                        var (split-symb-namespace fq-symb)]
+                    (if (is-var var)
+                      (let [[var-ns var-symb] var
+                            {:keys [line column]} (meta (zip/node zloc))
+                            vr-id (var-ref-id var-ns var-symb ns-symb line column)]
+                        (into facts (cond-> [[:db/add vr-id :var-ref/var (var-id var-ns var-symb)]
+                                             [:db/add vr-id :var-ref/namespace (namespace-id ns-symb)]
+                                             [:db/add vr-id :var-ref/in-function (function-id ns-symb (:in-function ctx))]]
+                                      line (into [[:db/add vr-id :var-ref/line line]])
+                                      column (into [[:db/add vr-id :var-ref/column column]]))))
+                      facts))
+                  ctx)
+
+           :else
+           (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
+                  facts
+                  ctx)))))))
 
 (defn namespace-forms-facts [all-ns-map ns-symb]
   (->> (:namespace/forms (get all-ns-map ns-symb))
        (mapcat (partial deep-form-facts all-ns-map ns-symb))))
 
-(defn namespace-vars-refs-facts [all-ns-map ns-symb]
-  (->> (:namespace/forms (get all-ns-map ns-symb))
-       (mapcat (partial form-vars-refs-facts all-ns-map ns-symb))))
-
 (defn source-facts [all-ns-map]
   (let [all-ns-facts (mapcat namespace-facts (vals all-ns-map))
-        all-ns-form-facts (mapcat (fn [[ns-symb _]] (namespace-forms-facts all-ns-map ns-symb)) all-ns-map)
-        all-ns-vars-refs-facts (mapcat (fn [[ns-symb _]] (namespace-vars-refs-facts all-ns-map ns-symb)) all-ns-map)]
+        all-ns-form-facts (mapcat (fn [[ns-symb _]] (namespace-forms-facts all-ns-map ns-symb)) all-ns-map)]
     (-> []
         (into all-ns-facts)
-        (into all-ns-form-facts)
-        (into all-ns-vars-refs-facts))))
+        (into all-ns-form-facts))))
 
 (defn check-facts [tx-data]
   (doseq [[_ _ _ v :as f] tx-data]
@@ -318,13 +315,6 @@
         (d/q (+ a 4)))))
 
   (deep-form-facts
-   all-ns
-   'clindex.indexer
-   '(defprotocol  bla [x]
-      (let [a x]
-        (d/q (+ a 4)))))
-
-  (form-vars-refs-facts
    all-ns
    'clindex.indexer
    '(defn bla [x]
