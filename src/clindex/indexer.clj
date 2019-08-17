@@ -87,8 +87,7 @@
     symb))
 
 (defn resolve-symbol [all-ns-map ns-symb fsymb]
-  (let [ns-requires (conj (:namespace/dependencies (get all-ns-map ns-symb))
-                          'clojure.core)] ;; NOTE : not sure if this should be done here or in a more general way
+  (let [ns-requires (:namespace/dependencies (get all-ns-map ns-symb))]
     (some (fn [rns-symb]
             (let [{:keys [:namespace/public-vars :namespace/macros] :as rns} (get all-ns-map rns-symb)]
               (when (contains? (into public-vars macros) fsymb)
@@ -132,16 +131,22 @@
               macro? (into [[:db/add fid :funciton/macro? true]])))
    :ctx (merge ctx {:in-function fname})})
 
-(defmethod form-facts 'clojure.core/defn
-  [all-ns-map {:keys [:namespace/name] :as ctx} [_ fname]]
+(defmethod form-facts 'clojure.core/defn [all-ns-map {:keys [:namespace/name] :as ctx} [_ fname]]
   (defn-facts ctx name fname false))
 
-(defmethod form-facts 'clojure.core/defn-
-  [all-ns-map ctx [_ fname]]
+(defmethod form-facts 'clojure.core/defn- [all-ns-map ctx [_ fname]]
   (defn-facts ctx name fname false))
 
-(defmethod form-facts 'clojure.core/defmacro
-  [all-ns-map ctx [_ fname]]
+(defmethod form-facts 'clojure.core/defmacro [all-ns-map ctx [_ fname]]
+  (defn-facts ctx name fname true))
+
+(defmethod form-facts 'cljs.core/defn [all-ns-map {:keys [:namespace/name] :as ctx} [_ fname]]
+  (defn-facts ctx name fname false))
+
+(defmethod form-facts 'cljs.core/defn- [all-ns-map ctx [_ fname]]
+  (defn-facts ctx name fname false))
+
+(defmethod form-facts 'cljs.core/defmacro [all-ns-map ctx [_ fname]]
   (defn-facts ctx name fname true))
 
 (defmethod form-facts 'defprotocol
@@ -151,14 +156,16 @@
 
 (defmethod form-facts :default
   [all-ns-map ctx form]
-  #_(println "Analyzing form " form "with context " ctx " and meta " (meta form))
+  ;; (println "Analyzing form " form "with context " ctx " and meta " (meta form))
   {:facts []
    :ctx ctx})
 
 (defn fully-qualify-symb [all-ns-map ns-symb symb]
   (let [ns (get all-ns-map ns-symb)
+        ns-deps (:namespace/dependencies ns)
         ns-alias-map (:namespace/alias-map ns)
-        ns-vars (-> (:namespace/public-vars ns)
+        ns-vars (-> #{}
+                    (into (:namespace/public-vars ns))
                     (into (:namespace/private-vars ns))
                     (into (:namespace/macros ns)))
         symb-ns (when-let [s (namespace symb)]
@@ -167,7 +174,7 @@
 
       ;; check OR
       (or (and symb-ns (contains? all-ns-map symb-ns)) ;; it is already fully qualified
-          (special-symbol? symb)                        ;; it is a special symbol
+          (special-symbol? symb)                       ;; it is a special symbol
           (str/starts-with? (name symb) "."))          ;; it is field access or method
       symb
 
@@ -192,9 +199,7 @@
                       (into (:namespace/private-vars ns))
                       (into (:namespace/macros ns)))
           fsymb (first form)
-          fsymb-ns (when-let [s (namespace fsymb)]
-                     (symbol s))
-          fq-symb (fully-qualify-symb all-ns-map fsymb-ns fsymb)]
+          fq-symb (fully-qualify-symb all-ns-map ns-symb fsymb)]
       (if fq-symb
         (with-meta
           (conj (rest form) fq-symb)
@@ -268,6 +273,7 @@
                   ctx)))))))
 
 (defn namespace-forms-facts [all-ns-map ns-symb]
+  (println "indexing " ns-symb)
   (->> (:namespace/forms (get all-ns-map ns-symb))
        (mapcat (partial deep-form-facts all-ns-map ns-symb))))
 
@@ -304,6 +310,14 @@
                                            {:platform ctnf/clj}))
 
       (def all-ns (scanner/all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs})))
+
+  (do (require '[clindex.scanner :as scanner])
+      (require '[clojure.tools.namespace.find :as ctnf])
+
+      (def all-projs (scanner/all-projects "/home/jmonetta/my-projects/district0x/memefactory"
+                                           {:platform ctnf/cljs}))
+
+      (def all-ns (scanner/all-namespaces all-projs {:platform ctnf/cljs #_ctnf/cljs})))
 
   (def src-facts (source-facts all-ns))
 

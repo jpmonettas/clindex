@@ -24,7 +24,7 @@
   []
   @indexer/db-conn)
 
-(defn search-var
+(defn search-var-starts-with
   "Searches the index for a var, and prints a table containing
   :name, :ns, :project :file and :line."
   [search-term]
@@ -53,11 +53,9 @@
   (let [q-result (d/q '[:find ?pname ?vrnsn ?vn ?in-fn ?vrline ?vrcolumn ?fname
                         :in $ ?nsn ?vn
                         :where
-
                         [?nid :namespace/name ?nsn]
                         [?vid :var/namespace ?nid]
                         [?vid :var/name ?vn]
-
                         [?vrid :var-ref/var ?vid]
                         [?vrid :var-ref/namespace ?vrnid]
                         [?vrid :var-ref/line ?vrline]
@@ -82,10 +80,10 @@
   (def tx-result (time (index-project! "/home/jmonetta/my-projects/clindex" :clj)))
 
 
-  (search-var "eval")
+  (search-var-starts-with "eval")
   (x-refs 'clindex.indexer 'namespace-facts)
 
   (def tx-result (time (index-project! "/home/jmonetta/my-projects/district0x/memefactory" :cljs)))
-  (search-var "start")
+  (search-var-starts-with "start")
   (x-refs 'cljs-web3.eth 'block-number)
   )

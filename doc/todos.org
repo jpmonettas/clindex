@@ -3,12 +3,14 @@
 - [X] scanner namespaces
 - [X] scanner separate ns priv and public vars with extension mechanism
 - [ ] scanner add ns :imports
+- [ ] scanner deal with cljs clojure namespace aliases
 - [X] indexer project facts
 - [X] indexer file facts
 - [X] indexer namespaces facts
 - [X] indexer namespaces deps facts
 - [X] indexer namespaces vars facts
 - [X] indexer namespaces forms facts with extension mechanism
+- [X] indexer index parent fn in ref
 - [ ] indexer process :imports aliases
 - [ ] create api ns
 - [ ] refactor file story

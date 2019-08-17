@@ -11,7 +11,9 @@
             [clojure.tools.reader.reader-types :as reader-types]
             [clojure.pprint :refer [pprint] :as pprint]
             [clojure.spec.alpha :as s]
-            [cljs.tagged-literals :as tags]))
+            [cljs.core.specs.alpha :as cljs-spec]
+            [cljs.tagged-literals :as tags]
+            [clojure.tools.namespace.find :as ctnf]))
 
 
 (def mvn-repos {"central" {:url "https://repo1.maven.org/maven2/"}
@@ -196,8 +198,12 @@
 (defn private-vars [ns-forms]
   (into #{} (keep form-private-var ns-forms)))
 
-(defn aliases-from-ns-decl [ns-form]
-  (let [ns-form-ast (s/conform :clojure.core.specs.alpha/ns-form (rest ns-form))
+(defn aliases-from-ns-decl [ns-form platform]
+  ;; clojure ns-form spec doesn't work for cljs ns declarations
+  (let [spec (cond
+               (= platform ctnf/clj) :clojure.core.specs.alpha/ns-form
+               (= platform ctnf/cljs) ::cljs-spec/ns-form)
+        ns-form-ast (s/conform spec (rest ns-form))
         requires (->> (:ns-clauses ns-form-ast)
                       (into {})
                       :require)]
@@ -205,14 +211,23 @@
          (keep (fn [x]
                  (try
                    (let [[_libspec [_lib+opts {:keys [lib options]}]] x]
-                    (when-let [alias (:as options)]
-                      [alias lib]))
+                     (when-let [alias (:as options)]
+                       ;; ns-form specs doesn't conform to the same for cljs and clj :(
+                       ;; so patching it here
+                       [alias (cond
+                                (= platform ctnf/clj) lib
+                                (= platform ctnf/cljs) (second lib))]))
                    (catch Exception e
                      (prn "[Warning] problem while building alias map for " {:ns-form ns-form
                                                                              :sub-part x})))))
          (into {}))))
 
+(defn aliases-from-alias-forms [file]
+  ;; TODO implement this
+  {})
+
 (defn data-readers [all-projs]
+  ;; TODO implement this
   {})
 
 (defn all-namespaces [all-projs {:keys [platform] :as opts}]
@@ -230,21 +245,42 @@
                       file-content-path (if jar
                                           (utils/jar-full-path jar (.getPath file))
                                           file)
-                      alias-map (aliases-from-ns-decl ns-decl)
+                      alias-map (merge (aliases-from-ns-decl ns-decl platform)
+                                       (aliases-from-alias-forms file))
                       ns-forms (read-namespace-forms file-content-path alias-map readers (:read-opts platform))
                       pub-vars (public-vars ns-forms)
                       priv-vars (private-vars ns-forms)
                       ns-name (ns-parse/name-from-ns-decl ns-decl)]
+                  ;; TODO probably around here we need to deal with the feature of cljs that lets you
+                  ;; require clojure.set but that is kind of a alias to cljs.set
                   [ns-name {:namespace/name ns-name
                             :namespace/alias-map alias-map
-                            :namespace/dependencies (ns-parse/deps-from-ns-decl ns-decl)
+                            :namespace/dependencies (conj (ns-parse/deps-from-ns-decl ns-decl) ;; implicitly requiered in clojure ns
+                                                          (cond
+                                                            (= platform ctnf/clj) 'clojure.core
+                                                            (= platform ctnf/cljs) 'cljs.core))
                             :namespace/file-content-path file-content-path
                             :namespace/project (file->proj (or jar (.getAbsolutePath file)))
                             :namespace/forms ns-forms
                             :namespace/public-vars pub-vars
                             :namespace/private-vars priv-vars
                             :namespace/macros (macros ns-forms)}])))
-         (into {}))))
+         ;; need to combine since we can have the same namespace in different files like in
+         ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljc
+         ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljs
+         (reduce
+          (fn [r [ns-name ns-map]]
+            (update r ns-name (fn [m]
+                                (if m
+                                  (-> m
+                                      (update :namespace/alias-map merge (:namespace/alias-map ns-map))
+                                      (update :namespace/dependencies (fnil into #{}) (:namespace/dependencies ns-map))
+                                      (update :namespace/forms (fnil into #{}) (:namespace/forms ns-map))
+                                      (update :namespace/public-vars (fnil into #{}) (:namespace/public-vars ns-map))
+                                      (update :namespace/private-vars (fnil into #{}) (:namespace/private-vars ns-map))
+                                      (update :namespace/macros (fnil into #{}) (:namespace/macros ns-map)))
+                                  ns-map))))
+          {}))))
 
 (comment
 
