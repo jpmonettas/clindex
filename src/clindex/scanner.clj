@@ -282,6 +282,11 @@
                                   ns-map))))
           {}))))
 
+(defn scan-all [base-dir opts]
+  (let [projects (all-projects base-dir opts)]
+    {:projects projects
+    :namespaces (all-namespaces projects opts)}))
+
 (comment
 
   (def all-ns (all-namespaces all-projs {:platform #_ctnf/clj ctnf/cljs}))

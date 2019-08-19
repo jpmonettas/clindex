@@ -19,6 +19,9 @@
 - [ ] prepare scanner and indexer api for reindexing on file change
 - [ ] support extra schema to be merged on db creation
 - [ ] fix "clindex.indexer" ns file indexing
+- [ ] add support for pom.xml
+- [ ] add specs
+- [ ] add some tests
 
 
 * Notes

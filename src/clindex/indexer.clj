@@ -1,69 +1,29 @@
 (ns clindex.indexer
   (:require [datascript.core :as d]
-            #_[rewrite-clj.zip :as z]
             [clojure.zip :as zip]
             [clojure.string :as str]
-            [clindex.utils :as utils]))
-
-(def db-conn (d/create-conn {:project/name           {:db/cardinality :db.cardinality/one}
-                             :project/depends        {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-                             :file/name              {:db/cardinality :db.cardinality/one}
-                             :namespace/name         {:db/cardinality :db.cardinality/one}
-                             :namespace/project      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :namespace/file         {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :var/name               {:db/cardinality :db.cardinality/one}
-                             :var/line               {:db/cardinality :db.cardinality/one}
-                             :var/namespace          {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :var/public?            {:db/cardinality :db.cardinality/one}
-                             :function/var           {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :function/namespace     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :function/macro?        {:db/cardinality :db.cardinality/one}
-                             :var-ref/line           {:db/cardinality :db.cardinality/one}
-                             :var-ref/col            {:db/cardinality :db.cardinality/one}
-                             :var-ref/var            {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :var-ref/namespace      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             :var-ref/in-function    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                             }))
-
-(defn stable-id [& args]
-  (Math/abs (apply hash [args])))
-
-(defn project-id [proj-symb]
-  (stable-id :project proj-symb))
-
-(defn file-id [file]
-  (stable-id :file file))
-
-(defn namespace-id [namespace-symb]
-  (stable-id :namespace namespace-symb))
-
-(defn var-id [namespace-symb var-symb]
-  (stable-id :var namespace-symb var-symb))
-
-(defn var-ref-id [namespace-symb var-symb ref-ns-symb ref-line ref-col]
-  (stable-id :var-ref namespace-symb var-symb ref-ns-symb ref-line ref-col))
-
-(defn function-id [namespace-symb var-symb]
-  (stable-id :function namespace-symb var-symb))
+            [clindex.utils :as utils]
+            [clindex.forms-facts :refer [form-facts]]))
 
 
-(defn project-facts [{:keys [:project/name :project/dependencies] :as proj}]
-  (let [proj-id (project-id name)]
+
+(defn- project-facts [{:keys [:project/name :project/dependencies] :as proj}]
+  (let [proj-id (utils/project-id name)]
     (->> [[:db/add proj-id :project/name name]]
          (into (mapv (fn [dep-symb]
-                       [:db/add proj-id :project/depends (project-id dep-symb)])
+                       [:db/add proj-id :project/depends (utils/project-id dep-symb)])
                      (:project/dependencies proj))))))
 
-(defn files-facts [{:keys [:project/files] :as proj}]
+(defn- files-facts [{:keys [:project/files] :as proj}]
   (->> files
        (mapv (fn [file]
-               [:db/add (file-id (:full-path file)) :file/name (:full-path file)]))))
+               [:db/add (utils/file-id (:full-path file)) :file/name (:full-path file)]))))
 
-(defn namespace-facts [ns]
-  (let [ns-id (namespace-id (:namespace/name ns))
+(defn- namespace-facts [ns]
+  (let [ns-id (utils/namespace-id (:namespace/name ns))
         vars-facts (fn [vs pub?]
                      (mapcat (fn [v]
-                               (let [vid (var-id (:namespace/name ns) v)
+                               (let [vid (utils/var-id (:namespace/name ns) v)
                                      vline (-> v meta :line)]
                                  (when (nil? vline)
                                    (println (format "[Warning], no line meta for %s/%s" (:namespace/name ns) v)))
@@ -73,20 +33,20 @@
                                    vline (into [[:db/add vid :var/line vline]]))))
                              vs))
         facts (-> [[:db/add ns-id :namespace/name (:namespace/name ns)]
-                   [:db/add ns-id :namespace/project (project-id (:namespace/project ns))]
-                   [:db/add ns-id :namespace/file (file-id (:namespace/file-content-path ns))]]
+                   [:db/add ns-id :namespace/project (utils/project-id (:namespace/project ns))]
+                   [:db/add ns-id :namespace/file (utils/file-id (:namespace/file-content-path ns))]]
                   (into (vars-facts (:namespace/public-vars ns) true))
                   (into (vars-facts (:namespace/private-vars ns) false)))]
     facts))
 
-(defn expand-symbol-alias [aliases-map current-ns-symb symb]
+(defn- expand-symbol-alias [aliases-map current-ns-symb symb]
   (if-let [ns-symb (namespace symb)]
     (if-let [full-ns-symb (get aliases-map (symbol ns-symb))]
       (symbol (name full-ns-symb) (name symb))
       symb)
     symb))
 
-(defn resolve-symbol [all-ns-map ns-symb fsymb]
+(defn- resolve-symbol [all-ns-map ns-symb fsymb]
   (let [ns-requires (:namespace/dependencies (get all-ns-map ns-symb))]
     (some (fn [rns-symb]
             (let [{:keys [:namespace/public-vars :namespace/macros] :as rns} (get all-ns-map rns-symb)]
@@ -94,7 +54,7 @@
                 (symbol (name (:namespace/name rns)) (name fsymb)))))
       ns-requires)))
 
-(defn function-call? [all-ns-map ns-symb fq-fsymb]
+(defn- function-call? [all-ns-map ns-symb fq-fsymb]
   (let [fns-symb (when-let [n (namespace fq-fsymb)]
                    (symbol n))
         fsymb (symbol (name fq-fsymb))]
@@ -109,7 +69,7 @@
       (let [ns (get all-ns-map fns-symb)]
         (contains? (:namespace/public-vars ns) fsymb)))))
 
-(defn macro-call? [all-ns-map ns-symb fq-fsymb]
+(defn- macro-call? [all-ns-map ns-symb fq-fsymb]
   (let [fns-symb (when-let [n (namespace fq-fsymb)]
                    (symbol n))
         fsymb (symbol (name fq-fsymb))]
@@ -121,44 +81,6 @@
       ;; it is calling other ns maybe
       (let [ns (get all-ns-map fns-symb)]
         (contains? (:namespace/macros ns) fsymb)))))
-
-(defmulti form-facts (fn [all-ns-map ctx form] (first form)))
-
-(defn defn-facts [ctx ns-name fname macro?]
-  {:facts (let [fid (function-id ns-name fname)]
-            (cond-> [[:db/add fid :function/var (var-id ns-name fname)]
-                     [:db/add fid :function/namespace (namespace-id ns-name)]]
-              macro? (into [[:db/add fid :funciton/macro? true]])))
-   :ctx (merge ctx {:in-function fname})})
-
-(defmethod form-facts 'clojure.core/defn [all-ns-map {:keys [:namespace/name] :as ctx} [_ fname]]
-  (defn-facts ctx name fname false))
-
-(defmethod form-facts 'clojure.core/defn- [all-ns-map ctx [_ fname]]
-  (defn-facts ctx name fname false))
-
-(defmethod form-facts 'clojure.core/defmacro [all-ns-map ctx [_ fname]]
-  (defn-facts ctx name fname true))
-
-(defmethod form-facts 'cljs.core/defn [all-ns-map {:keys [:namespace/name] :as ctx} [_ fname]]
-  (defn-facts ctx name fname false))
-
-(defmethod form-facts 'cljs.core/defn- [all-ns-map ctx [_ fname]]
-  (defn-facts ctx name fname false))
-
-(defmethod form-facts 'cljs.core/defmacro [all-ns-map ctx [_ fname]]
-  (defn-facts ctx name fname true))
-
-(defmethod form-facts 'defprotocol
-  [all-ns-map ctx [_ pname]]
-  {:facts []
-   :ctx (merge ctx {:in-protocol pname})})
-
-(defmethod form-facts :default
-  [all-ns-map ctx form]
-  ;; (println "Analyzing form " form "with context " ctx " and meta " (meta form))
-  {:facts []
-   :ctx ctx})
 
 (defn fully-qualify-symb [all-ns-map ns-symb symb]
   (let [ns (get all-ns-map ns-symb)
@@ -258,10 +180,10 @@
                     (if (is-var var)
                       (let [[var-ns var-symb] var
                             {:keys [line column]} (meta (zip/node zloc))
-                            vr-id (var-ref-id var-ns var-symb ns-symb line column)]
-                        (into facts (cond-> [[:db/add vr-id :var-ref/var (var-id var-ns var-symb)]
-                                             [:db/add vr-id :var-ref/namespace (namespace-id ns-symb)]
-                                             [:db/add vr-id :var-ref/in-function (function-id ns-symb (:in-function ctx))]]
+                            vr-id (utils/var-ref-id var-ns var-symb ns-symb line column)]
+                        (into facts (cond-> [[:db/add vr-id :var-ref/var (utils/var-id var-ns var-symb)]
+                                             [:db/add vr-id :var-ref/namespace (utils/namespace-id ns-symb)]
+                                             [:db/add vr-id :var-ref/in-function (utils/function-id ns-symb (:in-function ctx))]]
                                       line (into [[:db/add vr-id :var-ref/line line]])
                                       column (into [[:db/add vr-id :var-ref/column column]]))))
                       facts))
@@ -284,22 +206,14 @@
         (into all-ns-facts)
         (into all-ns-form-facts))))
 
-(defn check-facts [tx-data]
-  (doseq [[_ _ _ v :as f] tx-data]
-    (when (nil? v)
-      (println "Error, nil valued fact " f))))
-
-(defn index-all! [all-projs-map all-ns-map]
-  (let [all-projs-facts (mapcat project-facts (vals all-projs-map))
-        all-files-facts (mapcat files-facts (vals all-projs-map))
-        all-source-facts (source-facts all-ns-map)
-        tx-data (-> []
-                    (into all-projs-facts)
-                    (into all-files-facts)
-                    (into all-source-facts))]
-    (check-facts tx-data)
-    (println (format "About to transact %d facts" (count tx-data)))
-    (d/transact! db-conn tx-data)))
+(defn all-facts [{:keys [projects namespaces]}]
+  (let [all-projs-facts (mapcat project-facts (vals projects))
+        all-files-facts (mapcat files-facts (vals projects))
+        all-source-facts (source-facts namespaces)]
+    (-> []
+        (into all-projs-facts)
+        (into all-files-facts)
+        (into all-source-facts))))
 
 (comment
 

@@ -1,4 +1,4 @@
-{:paths ["resources" "src"]
+{:paths ["resources" "src" "dev-src"]
  :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
         datascript                     {:mvn/version "0.17.1"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
@@ -6,7 +6,10 @@
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
         org.clojure/tools.analyzer.jvm {:mvn/version "0.7.2"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}
-        org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}}
+
+        ;;org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}
+        org.clojure/tools.namespace    {:git/url "https://github.com/jpmonettas/tools.namespace"
+                                        :sha "a7868582df4a0f5fc65cc3f361078ce40172468d"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}}}

@@ -71,3 +71,29 @@
             (pred (zip/node z)))
       z
       (recur (zip/next z)))))
+
+(defn check-facts [tx-data]
+  (doseq [[_ _ _ v :as f] tx-data]
+    (when (nil? v)
+      (println "Error, nil valued fact " f))))
+
+(defn stable-id [& args]
+  (Math/abs (apply hash [args])))
+
+(defn project-id [proj-symb]
+  (stable-id :project proj-symb))
+
+(defn file-id [file]
+  (stable-id :file file))
+
+(defn namespace-id [namespace-symb]
+  (stable-id :namespace namespace-symb))
+
+(defn var-id [namespace-symb var-symb]
+  (stable-id :var namespace-symb var-symb))
+
+(defn var-ref-id [namespace-symb var-symb ref-ns-symb ref-line ref-col]
+  (stable-id :var-ref namespace-symb var-symb ref-ns-symb ref-line ref-col))
+
+(defn function-id [namespace-symb var-symb]
+  (stable-id :function namespace-symb var-symb))
