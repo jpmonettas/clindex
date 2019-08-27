@@ -14,6 +14,7 @@
    :function/var           {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :function/namespace     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :function/macro?        {:db/cardinality :db.cardinality/one}
+   :function/source        {:db/cardinality :db.cardinality/one}
    :var-ref/line           {:db/cardinality :db.cardinality/one}
    :var-ref/col            {:db/cardinality :db.cardinality/one}
    :var-ref/var            {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}

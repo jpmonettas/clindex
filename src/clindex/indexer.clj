@@ -223,7 +223,10 @@
       (def all-projs (scanner/all-projects "/home/jmonetta/my-projects/clindex"
                                            {:platform ctnf/clj}))
 
-      (def all-ns (scanner/all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs})))
+      (def main-project {scanner/main-project-symb (get all-projs scanner/main-project-symb)})
+      (def all-ns (scanner/all-namespaces
+                   all-projs #_main-project
+                   {:platform ctnf/clj #_ctnf/cljs})))
 
   (do (require '[clindex.scanner :as scanner])
       (require '[clojure.tools.namespace.find :as ctnf])

@@ -155,7 +155,7 @@
       (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" (slurp full-path) "]"))
                             (reader/read read-opts)
                             (keep (fn [form]
-                                    (when form
+                                    (when (and form (not= (first form) 'comment))
                                       (with-meta form {:type :clindex/form})))))]
         forms)
       (catch Exception e
