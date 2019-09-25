@@ -17,7 +17,7 @@ A Clojure[Script] source file indexer. Scans a Clojure[Script] project with all 
                         {:platforms #{:clj}})
 
 ;; retrieve the datascript dbs
-  (def db (clindex/db :clj))
+(def db (clindex/db :clj))
 
 ;; now you can query the dbs
 ;; lets query all the vars that start with "eval"
