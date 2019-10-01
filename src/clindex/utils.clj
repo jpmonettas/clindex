@@ -97,3 +97,26 @@
 
 (defn function-id [namespace-symb var-symb]
   (stable-id :function namespace-symb var-symb))
+
+(defn rectangle-select
+  "Given a string with lines, returns a string with the subregion
+  between l1 and l2 lines and c1 and c2 columns.
+  No c2 means to the end of the line."
+  ([s l1 l2 c1] (rectangle-select s l1 l2 c1 nil))
+  ([s l1 l2 c1 c2]
+   (->> (str/split-lines s)
+        (drop (dec l1))
+        (take (inc (- l2 l1)))
+        (map (fn [l]
+               (let [m (count l)]
+                 (try
+                   (if c2
+                     (subs l
+                           (min m (dec c1))
+                           (min m (dec c2)))
+                     (subs l (min m (dec c1))))
+                   (catch Exception e
+                     (prn "PROBLEM " m l c1 c2 )
+                     (throw e))))
+               ))
+        (str/join "\n"))))

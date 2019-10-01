@@ -197,6 +197,9 @@
 (defn namespace-forms-facts [all-ns-map ns-symb]
   (println "indexing " ns-symb)
   (->> (:namespace/forms (get all-ns-map ns-symb))
+       ;; first level forms have :form-str meta
+       (map (fn [form]
+              (vary-meta (:form-list form) assoc :form-str (:form-str form))))
        (mapcat (partial deep-form-facts all-ns-map ns-symb))))
 
 (defn source-facts [all-ns-map]

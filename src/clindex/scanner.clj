@@ -131,7 +131,6 @@
    (vals all-projs)))
 
 (comment
-  (require '[clojure.tools.namespace.find :as ctnf])
 
   (def all-projs (all-projects "/home/jmonetta/my-projects/clindex"
                                {:platform ctnf/clj}))
@@ -147,17 +146,25 @@
 ;; Namespaces scanning ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn enhance-form-meta [alias-map form]
+  ;; TODO: implement
+  form)
+
 (defn read-namespace-forms [full-path alias-map readers read-opts]
   (binding [reader/*data-readers* (merge tags/*cljs-data-readers* readers)
             reader/*alias-map* alias-map
             reader/*read-eval* false]
     (try
-      (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" (slurp full-path) "]"))
-                            (reader/read read-opts)
-                            (keep (fn [form]
-                                    (when (and form (not= (first form) 'comment))
-                                      (with-meta form {:type :clindex/form})))))]
-        forms)
+      (let [file-str (slurp full-path)]
+        (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" file-str "]"))
+                              (reader/read read-opts)
+                              (keep (fn [form]
+                                      (when (and form (not= (first form) 'comment))
+                                        (let [{:keys [line column end-line end-column]} (meta form)
+                                              form-str (utils/rectangle-select file-str line end-line column)]
+                                          {:form-list (enhance-form-meta alias-map form)
+                                           :form-str form-str})))))]
+          forms))
       (catch Exception e
         (let [{:keys [line type]} (ex-data e)]
           (case type
@@ -248,8 +255,9 @@
                       alias-map (merge (aliases-from-ns-decl ns-decl platform)
                                        (aliases-from-alias-forms file))
                       ns-forms (read-namespace-forms file-content-path alias-map readers (:read-opts platform))
-                      pub-vars (public-vars ns-forms)
-                      priv-vars (private-vars ns-forms)
+                      ns-form-lists (map :form-list ns-forms)
+                      pub-vars (public-vars ns-form-lists)
+                      priv-vars (private-vars ns-form-lists)
                       ns-name (ns-parse/name-from-ns-decl ns-decl)]
                   ;; TODO probably around here we need to deal with the feature of cljs that lets you
                   ;; require clojure.set but that is kind of a alias to cljs.set
@@ -264,7 +272,7 @@
                             :namespace/forms ns-forms
                             :namespace/public-vars pub-vars
                             :namespace/private-vars priv-vars
-                            :namespace/macros (macros ns-forms)}])))
+                            :namespace/macros (macros ns-form-lists)}])))
          ;; need to combine since we can have the same namespace in different files like in
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljc
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljs

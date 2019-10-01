@@ -1,4 +1,4 @@
-{:paths ["resources" "src" "dev-src"]
+{:paths ["resources" "src" "dev-src" "test"]
  :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
         datascript                     {:mvn/version "0.17.1"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
@@ -16,6 +16,7 @@
   :runner
   {:extra-deps {com.cognitect/test-runner
                 {:git/url "https://github.com/cognitect-labs/test-runner"
-                 :sha "76568540e7f40268ad2b646110f237a60295fa3c"}}
+                 :sha "76568540e7f40268ad2b646110f237a60295fa3c"
+                 :exclusions [org.clojure/tools.namespace]}}
    :main-opts ["-m" "cognitect.test-runner"
                "-d" "test"]}}}

@@ -7,8 +7,9 @@
   {:facts (let [fid (utils/function-id ns-name fname)]
             (cond-> [[:db/add fid :function/var (utils/var-id ns-name fname)]
                      [:db/add fid :function/namespace (utils/namespace-id ns-name)]
-                     [:db/add fid :function/source (pr-str (with-meta form {}))]]
-              macro? (into [[:db/add fid :funciton/macro? true]])))
+                     [:db/add fid :function/source-form form]
+                     [:db/add fid :function/source-str (:form-str (meta form))]]
+              macro? (into [[:db/add fid :function/macro? true]])))
    :ctx (merge ctx {:in-function fname})})
 
 (defmethod form-facts 'clojure.core/defn [all-ns-map {:keys [:namespace/name] :as ctx} form]
