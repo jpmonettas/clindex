@@ -1,5 +1,5 @@
 (ns clindex.scanner-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [is deftest testing]]
             [clindex.scanner :as scanner]
             [clojure.java.io :as io]
             [clojure.tools.namespace.find :as ctnf]))

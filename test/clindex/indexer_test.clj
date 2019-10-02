@@ -2,7 +2,7 @@
   (:require [clindex.indexer :as indexer]
             [clindex.scanner :as scanner]
             [clojure.java.io :as io]
-            [clojure.test :refer :all]
+            [clojure.test :refer [is deftest testing]]
             [clojure.tools.namespace.find :as ctnf]))
 
 
