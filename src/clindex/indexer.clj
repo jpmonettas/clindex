@@ -180,7 +180,7 @@
            (symbol? token)
            (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
                   (let [fq-symb (fully-qualify-symb all-ns-map ns-symb token)
-                        var (split-symb-namespace token)]
+                        var (split-symb-namespace fq-symb)]
                     (if (is-var var)
                       (let [[var-ns var-symb] var
                             {:keys [line column]} (meta (zip/node zloc))
@@ -203,9 +203,9 @@
                     (fn [x]
                       (if (symbol? x)
                         (if-let [fqs (fully-qualify-symb all-ns-map ns-symb x)]
-                          (let [symb-ns (namespace fqs)]
-                            (with-meta x (merge (meta x)
-                                                {:var-ref/namespace symb-ns})))
+                          (let [ns (namespace fqs)]
+                            (vary-meta x merge (when (and ns x)
+                                                 {:var/id (utils/var-id (symbol ns) (symbol (name x)))})))
                           x)
                         x))
                     form-list)]
