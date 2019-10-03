@@ -30,3 +30,18 @@
 
     (is (= (:function/source-str facts-count) 2)
         "Should index 2 source strings for test-code namespace")))
+
+
+(comment
+ (def all-namespaces  (-> (scanner/all-projects (io/file (io/resource "test-project")) {:platform ctnf/clj})
+                          (scanner/all-namespaces {:platform ctnf/clj})))
+
+ (indexer/enhance-form-list-meta
+  '(defn some-function [arg1 arg2]
+     (let [a 1
+           b (+ arg1 arg2)]
+       (+ a b)))
+  "asdf"
+  all-namespaces
+  'test-code)
+ )

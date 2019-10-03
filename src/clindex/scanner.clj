@@ -146,10 +146,6 @@
 ;; Namespaces scanning ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn enhance-form-meta [alias-map form]
-  ;; TODO: implement
-  form)
-
 (defn read-namespace-forms [full-path alias-map readers read-opts]
   (binding [reader/*data-readers* (merge tags/*cljs-data-readers* readers)
             reader/*alias-map* alias-map
@@ -162,7 +158,7 @@
                                       (when (and form (not= (first form) 'comment))
                                         (let [{:keys [line column end-line end-column]} (meta form)
                                               form-str (utils/rectangle-select file-str line end-line column)]
-                                          {:form-list (enhance-form-meta alias-map form)
+                                          {:form-list form
                                            :form-str form-str})))))]
           forms))
       (catch Exception e

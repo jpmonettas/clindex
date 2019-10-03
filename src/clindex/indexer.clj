@@ -3,7 +3,8 @@
             [clojure.zip :as zip]
             [clojure.string :as str]
             [clindex.utils :as utils]
-            [clindex.forms-facts :refer [form-facts]]))
+            [clindex.forms-facts :refer [form-facts]]
+            [clojure.walk :as walk]))
 
 
 
@@ -91,27 +92,30 @@
                     (into (:namespace/private-vars ns))
                     (into (:namespace/macros ns)))
         symb-ns (when-let [s (namespace symb)]
-                  (symbol s))]
-    (cond
+                  (symbol s))
+        fqs (cond
 
-      ;; check OR
-      (or (and symb-ns (contains? all-ns-map symb-ns)) ;; it is already fully qualified
-          (special-symbol? symb)                       ;; it is a special symbol
-          (str/starts-with? (name symb) "."))          ;; it is field access or method
-      symb
+              ;; check OR
+              (or (and symb-ns (contains? all-ns-map symb-ns)) ;; it is already fully qualified
+                  (special-symbol? symb)                       ;; it is a special symbol
+                  (str/starts-with? (name symb) "."))          ;; it is field access or method
+              symb
 
-      ;; check if it is in our namespace
-      (contains? ns-vars symb)
-      (symbol (name ns-symb) (name symb))
+              ;; check if it is in our namespace
+              (contains? ns-vars symb)
+              (symbol (name ns-symb) (name symb))
 
-      ;; check if it is a namespaces symbol and can be expanded from aliases map
-      (and (namespace symb)
-           (contains? ns-alias-map symb-ns))
-      (expand-symbol-alias ns-alias-map symb-ns symb)
+              ;; check if it is a namespaces symbol and can be expanded from aliases map
+              (and (namespace symb)
+                   (contains? ns-alias-map symb-ns))
+              (expand-symbol-alias ns-alias-map symb-ns symb)
 
-      ;; try to search in all required namespaces for a :refer-all
-      :else
-      (resolve-symbol all-ns-map ns-symb symb))))
+              ;; try to search in all required namespaces for a :refer-all
+              :else
+              (resolve-symbol all-ns-map ns-symb symb))]
+
+    ;; transfer symbol meta
+    (when fqs (with-meta fqs (meta symb)))))
 
 (defn fully-qualify-form-first-symb [all-ns-map ns-symb form]
   (if (symbol? (first form))
@@ -176,7 +180,7 @@
            (symbol? token)
            (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
                   (let [fq-symb (fully-qualify-symb all-ns-map ns-symb token)
-                        var (split-symb-namespace fq-symb)]
+                        var (split-symb-namespace token)]
                     (if (is-var var)
                       (let [[var-ns var-symb] var
                             {:keys [line column]} (meta (zip/node zloc))
@@ -194,12 +198,24 @@
                   facts
                   ctx)))))))
 
+(defn enhance-form-list [form-list form-str all-ns-map ns-symb]
+  (let [form-list' (walk/postwalk
+                    (fn [x]
+                      (if (symbol? x)
+                        (if-let [fqs (fully-qualify-symb all-ns-map ns-symb x)]
+                          (let [symb-ns (namespace fqs)]
+                            (with-meta x (merge (meta x)
+                                                {:var-ref/namespace symb-ns})))
+                          x)
+                        x))
+                    form-list)]
+    (vary-meta form-list' merge (meta form-list) {:form-str form-str})))
+
 (defn namespace-forms-facts [all-ns-map ns-symb]
   (println "indexing " ns-symb)
   (->> (:namespace/forms (get all-ns-map ns-symb))
-       ;; first level forms have :form-str meta
-       (map (fn [form]
-              (vary-meta (:form-list form) assoc :form-str (:form-str form))))
+       (map (fn [{:keys [form-str form-list]}]
+              (enhance-form-list form-list form-str all-ns-map ns-symb)))
        (mapcat (partial deep-form-facts all-ns-map ns-symb))))
 
 (defn source-facts [all-ns-map]
