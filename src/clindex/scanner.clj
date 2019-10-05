@@ -39,10 +39,11 @@
              projects-map))
 
 (defn- find-project-in-dir [base-dir]
-  (let [tool-deps (some-> (utils/all-files base-dir #(str/ends-with? (str %) "deps.edn"))
-                          first
-                          :full-path
-                          tools-io/slurp-edn)
+  (let [tool-deps (some->> (utils/all-files base-dir #(str/ends-with? (str %) "deps.edn"))
+                           (sort-by (comp count :full-path)) ;; if there are more than one, that the shorter
+                           first
+                           :full-path
+                           tools-io/slurp-edn)
         lein-proj (some-> (utils/all-files base-dir #(str/ends-with? (str %) "project.clj"))
                           first
                           :full-path
