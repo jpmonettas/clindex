@@ -2,8 +2,6 @@
 - [X] scanner projects
 - [X] scanner namespaces
 - [X] scanner separate ns priv and public vars with extension mechanism
-- [ ] scanner add ns :imports
-- [ ] scanner deal with cljs clojure namespace aliases
 - [X] indexer project facts
 - [X] indexer file facts
 - [X] indexer namespaces facts
@@ -11,17 +9,24 @@
 - [X] indexer namespaces vars facts
 - [X] indexer namespaces forms facts with extension mechanism
 - [X] indexer index parent fn in ref
+- [X] create api ns
+- [X] support extra schema to be merged on db creation
+- [X] add some tests
+- [ ] scanner add ns :imports
+- [ ] scanner deal with cljs clojure namespace aliases
 - [ ] indexer process :imports aliases
-- [ ] create api ns
-- [ ] refactor file story
-- [ ] improve the logs story
-- [ ] redesign schema with isComponent so we can cascade retract a file > ns > [var var-ref] > ...
-- [ ] prepare scanner and indexer api for reindexing on file change
-- [ ] support extra schema to be merged on db creation
 - [ ] fix "clindex.indexer" ns file indexing
 - [ ] add support for pom.xml
 - [ ] add specs
-- [ ] add some tests
+- [ ] refactor file story
+- [ ] improve the logs story
+- [ ] redesign schema with isComponent so we can cascade retract a file > ns > [var var-ref] > ...
+- [ ] re-indexing on file change
+  - for file change watching we can use hawk
+  - for file change and its dependencies tracking we can use tns.track and tns.dir
+  - refactor scanner and indexer so we can get facts given a ns or file
+  - need to figure out a way of retracting old facts, like if some forms were removed when changing the file we have to retract some facts in our db
+    one thing that can be done is to keep a map in memory of facts by namespace, so once we reindex we can subsctract and figure out what facts need to be retracted
 
 
 * Notes
