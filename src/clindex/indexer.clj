@@ -38,7 +38,8 @@
                    [:db/add ns-id :namespace/project (utils/project-id (:namespace/project ns))]
                    [:db/add ns-id :namespace/file (utils/file-id (:namespace/file-content-path ns))]]
                   (into (vars-facts (:namespace/public-vars ns) true))
-                  (into (vars-facts (:namespace/private-vars ns) false)))]
+                  (into (vars-facts (:namespace/private-vars ns) false))
+                  (into (vars-facts (:namespace/macros ns) true)))]
     facts))
 
 (defn- expand-symbol-alias [aliases-map current-ns-symb symb]
