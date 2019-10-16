@@ -145,7 +145,16 @@
 
 (defn- read-namespace-forms [full-path alias-map readers read-opts]
   (binding [reader/*data-readers* (merge tags/*cljs-data-readers* readers)
-            reader/*alias-map* alias-map
+            ;; this is relaying on a implementation detail, tools.reader/read calls
+            ;; *alias-map* as a fn, so we can resolve to a dummy ns and allow reader to continue
+            reader/*alias-map* (fn [alias]
+                                 (if-let [ns (get alias-map alias)]
+                                   ns
+                                   (do
+                                     (println "[Warning] couldn't resolve alias, resolving to dummy.ns"
+                                             {:path full-path
+                                              :alias alias})
+                                     'dummy.ns)))
             reader/*read-eval* false]
     (try
       (let [file-str (slurp full-path)]
