@@ -4,15 +4,18 @@
             [clindex.scanner-test :as scanner-test]
             [clojure.java.io :as io]
             [clojure.test :refer [is deftest testing use-fixtures]]
-            [clojure.tools.namespace.find :as ctnf]))
+            [clojure.tools.namespace.find :as ctnf]
+            [clojure.spec.test.alpha :as stest]))
 
 (def all-projects nil)
 (def all-namespaces nil)
 
 (defn with-scanned-projs-and-namespaces [f]
-  (alter-var-root (var all-projects) (constantly (scanner/all-projects (io/file (io/resource "test-project")) {:platform ctnf/clj})))
+  (stest/instrument)
+  (alter-var-root (var all-projects) (constantly (scanner/all-projects (str (io/file (io/resource "test-project"))) {:platform ctnf/clj})))
   (alter-var-root (var all-namespaces) (constantly (scanner/all-namespaces all-projects {:platform ctnf/clj})))
-  (f))
+  (f)
+  (stest/unstrument))
 
 (use-fixtures :once with-scanned-projs-and-namespaces)
 
@@ -44,7 +47,7 @@
         "Should index version")))
 
 (deftest namespace-forms-facts-test
-  (let [test-code-facts (indexer/namespace-forms-facts all-namespaces 'test-code)
+  (let [test-code-facts (#'indexer/namespace-forms-facts all-namespaces 'test-code)
         facts-count (count-facts-by-attr test-code-facts)]
 
     (is (= (:function/var facts-count) 2)
@@ -61,10 +64,10 @@
 
 
 (comment
-  (def all-projs (scanner/all-projects (io/file (io/resource "test-project")) {:platform ctnf/clj}))
+  (def all-projs (scanner/all-projects (str (io/file (io/resource "test-project"))) {:platform ctnf/clj}))
   (def all-namespaces  (scanner/all-namespaces all-projs {:platform ctnf/clj}))
 
-  (indexer/enhance-form-list-meta
+  (#'indexer/enhance-form-list-meta
    '(defn some-function [arg1 arg2]
       (let [a 1
             b (+ arg1 arg2)]

@@ -13,7 +13,9 @@
             [clojure.spec.alpha :as s]
             [cljs.core.specs.alpha :as cljs-spec]
             [cljs.tagged-literals :as tags]
-            [clojure.tools.namespace.find :as ctnf]))
+            [clojure.tools.namespace.find :as ctnf]
+            [clojure.spec.alpha :as s]
+            [clindex.specs]))
 
 
 (def mvn-repos {"central" {:url "https://repo1.maven.org/maven2/"}
@@ -68,7 +70,7 @@
      :project/dependencies (->> deps keys (into #{}))
      :paths (or paths ["src"])}))
 
-(defn project-files
+(defn- project-files
   "Retrieves all project files maps for a platform.
   A project shoudl be a map containing a collection of paths, could be dirs or jar files.
   Platform is tools.namespace clj or cljs platform."
@@ -81,6 +83,11 @@
                   (if (str/ends-with? p ".jar")
                     (utils/jar-files p interested-in?)
                     (utils/all-files p interested-in?)))))))
+
+(s/fdef all-projects
+  :args (s/cat :base-dir :file/path
+               :opts (s/keys :req-un [:scanner/platform]))
+  :ret :scanner/projects)
 
 (defn all-projects
   "Given a base dir retrieves all projects (including base one) and all its dependencies.
@@ -122,7 +129,7 @@
     (dep/graph)
     xs)))
 
-(defn build-file->project-map [all-projs]
+(defn- build-file->project-map [all-projs]
   (reduce (fn [files-map {:keys [:project/name :project/files]}]
             (reduce (fn [fm f]
                       (assoc fm (or (:jar f) (:full-path f)) name))
@@ -136,7 +143,7 @@
 ;; Namespaces scanning ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn read-namespace-forms [full-path alias-map readers read-opts]
+(defn- read-namespace-forms [full-path alias-map readers read-opts]
   (binding [reader/*data-readers* (merge tags/*cljs-data-readers* readers)
             reader/*alias-map* alias-map
             reader/*read-eval* false]
@@ -168,7 +175,7 @@
        (not (:private (meta symb)))
        vname))
 
-(defn public-vars [ns-forms]
+(defn- public-vars [ns-forms]
   (into #{} (keep form-public-var ns-forms)))
 
 (defn- form-macro
@@ -177,7 +184,7 @@
   (when (*def-macro-set* symb)
     vname))
 
-(defn macros [ns-forms]
+(defn- macros [ns-forms]
   (into #{} (keep form-macro ns-forms)))
 
 (defn- form-private-var
@@ -188,10 +195,10 @@
                  (:private (meta symb))))
     vname))
 
-(defn private-vars [ns-forms]
+(defn- private-vars [ns-forms]
   (into #{} (keep form-private-var ns-forms)))
 
-(defn aliases-from-ns-decl [ns-form platform]
+(defn- aliases-from-ns-decl [ns-form platform]
   ;; clojure ns-form spec doesn't work for cljs ns declarations
   (let [spec (cond
                (= platform ctnf/clj) :clojure.core.specs.alpha/ns-form
@@ -215,13 +222,18 @@
                                                                              :sub-part x})))))
          (into {}))))
 
-(defn aliases-from-alias-forms [file]
+(defn- aliases-from-alias-forms [file]
   ;; TODO implement this
   {})
 
-(defn data-readers [all-projs]
+(defn- data-readers [all-projs]
   ;; TODO implement this
   {})
+
+(s/fdef all-namespaces
+  :args (s/cat :all-projs :scanner/projects
+               :opts (s/keys :req-un [:scanner/platform]))
+  :ret :scanner/namespaces)
 
 (defn all-namespaces [all-projs {:keys [platform] :as opts}]
   (let [readers (data-readers all-projs)
@@ -276,10 +288,16 @@
                                   ns-map))))
           {}))))
 
+(s/fdef scan-all
+  :args (s/cat :base-dir :file/path
+               :opts (s/keys :req-un [:scanner/platform]))
+  :ret (s/keys :req-un [:scanner/projects
+                        :scanner/namespaces]))
+
 (defn scan-all [base-dir opts]
   (let [projects (all-projects base-dir opts)]
     {:projects projects
-    :namespaces (all-namespaces projects opts)}))
+     :namespaces (all-namespaces projects opts)}))
 
 (comment
 

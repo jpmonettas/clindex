@@ -2,15 +2,18 @@
   (:require [clojure.test :refer [is deftest testing use-fixtures]]
             [clindex.scanner :as scanner]
             [clojure.java.io :as io]
-            [clojure.tools.namespace.find :as ctnf]))
+            [clojure.tools.namespace.find :as ctnf]
+            [clojure.spec.test.alpha :as stest]))
 
 (def all-projects nil)
 (def all-namespaces nil)
 
 (defn with-scanned-projs-and-namespaces [f]
-  (alter-var-root (var all-projects) (constantly (scanner/all-projects (io/file (io/resource "test-project")) {:platform ctnf/clj})))
+  (stest/instrument)
+  (alter-var-root (var all-projects) (constantly (scanner/all-projects (str (io/file (io/resource "test-project"))) {:platform ctnf/clj})))
   (alter-var-root (var all-namespaces) (constantly (scanner/all-namespaces all-projects {:platform ctnf/clj})))
-  (f))
+  (f)
+  (stest/unstrument))
 
 (use-fixtures :once with-scanned-projs-and-namespaces)
 

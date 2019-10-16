@@ -4,9 +4,9 @@
             [clojure.string :as str]
             [clindex.utils :as utils]
             [clindex.forms-facts :refer [form-facts]]
-            [clojure.walk :as walk]))
-
-
+            [clojure.walk :as walk]
+            [clojure.spec.alpha :as s]
+            [clindex.specs]))
 
 (defn- project-facts [{:keys [:project/name :project/dependencies :mvn/version] :as proj}]
   (let [proj-id (utils/project-id name)]
@@ -84,7 +84,7 @@
       (let [ns (get all-ns-map fns-symb)]
         (contains? (:namespace/macros ns) fsymb)))))
 
-(defn fully-qualify-symb [all-ns-map ns-symb symb]
+(defn- fully-qualify-symb [all-ns-map ns-symb symb]
   (let [ns (get all-ns-map ns-symb)
         ns-deps (:namespace/dependencies ns)
         ns-alias-map (:namespace/alias-map ns)
@@ -118,7 +118,7 @@
     ;; transfer symbol meta
     (when fqs (with-meta fqs (meta symb)))))
 
-(defn fully-qualify-form-first-symb [all-ns-map ns-symb form]
+(defn- fully-qualify-form-first-symb [all-ns-map ns-symb form]
   (if (symbol? (first form))
     (let [ns (get all-ns-map ns-symb)
           ns-alias-map (:namespace/alias-map ns)
@@ -141,7 +141,7 @@
           form)))
     form))
 
-(defn all-vars [all-ns-map]
+(defn- all-vars [all-ns-map]
   (->> (vals all-ns-map)
        (mapcat (fn [ns]
                  (let [ns-vars (-> (:namespace/public-vars ns)
@@ -152,13 +152,13 @@
                         ns-vars))))
        (into #{})))
 
-(defn split-symb-namespace [fq-symb]
+(defn- split-symb-namespace [fq-symb]
   (when fq-symb
     (->> ((juxt namespace name) fq-symb)
          (mapv #(when % (symbol %)))
          (into []))))
 
-(defn deep-form-facts [all-ns-map ns-symb form]
+(defn- deep-form-facts [all-ns-map ns-symb form]
   (let [is-var (all-vars all-ns-map)]
     (loop [zloc (utils/code-zipper form)
            facts []
@@ -199,7 +199,7 @@
                   facts
                   ctx)))))))
 
-(defn enhance-form-list [form-list form-str all-ns-map ns-symb]
+(defn- enhance-form-list [form-list form-str all-ns-map ns-symb]
   (let [form-list' (walk/postwalk
                     (fn [x]
                       (if (symbol? x)
@@ -212,19 +212,24 @@
                     form-list)]
     (vary-meta form-list' merge (meta form-list) {:form-str form-str})))
 
-(defn namespace-forms-facts [all-ns-map ns-symb]
+(defn- namespace-forms-facts [all-ns-map ns-symb]
   (println "indexing " ns-symb)
   (->> (:namespace/forms (get all-ns-map ns-symb))
        (map (fn [{:keys [form-str form-list]}]
               (enhance-form-list form-list form-str all-ns-map ns-symb)))
        (mapcat (partial deep-form-facts all-ns-map ns-symb))))
 
-(defn source-facts [all-ns-map]
+(defn- source-facts [all-ns-map]
   (let [all-ns-facts (mapcat namespace-facts (vals all-ns-map))
         all-ns-form-facts (mapcat (fn [[ns-symb _]] (namespace-forms-facts all-ns-map ns-symb)) all-ns-map)]
     (-> []
         (into all-ns-facts)
         (into all-ns-form-facts))))
+
+(s/fdef all-facts
+    :args (s/cat :m (s/keys :req-un [:scanner/projects
+                                     :scanner/namespaces]))
+    :ret (s/coll-of :datomic/fact))
 
 (defn all-facts [{:keys [projects namespaces]}]
   (let [all-projs-facts (mapcat project-facts (vals projects))

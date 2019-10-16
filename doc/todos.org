@@ -12,13 +12,13 @@
 - [X] create api ns
 - [X] support extra schema to be merged on db creation
 - [X] add some tests
+- [X] add specs
+- [ ] refactor file story
 - [ ] scanner add ns :imports
 - [ ] scanner deal with cljs clojure namespace aliases
 - [ ] indexer process :imports aliases
 - [ ] fix "clindex.indexer" ns file indexing
 - [ ] add support for pom.xml
-- [ ] add specs
-- [ ] refactor file story
 - [ ] improve the logs story
 - [ ] redesign schema with isComponent so we can cascade retract a file > ns > [var var-ref] > ...
 - [ ] re-indexing on file change
@@ -27,6 +27,5 @@
   - refactor scanner and indexer so we can get facts given a ns or file
   - need to figure out a way of retracting old facts, like if some forms were removed when changing the file we have to retract some facts in our db
     one thing that can be done is to keep a map in memory of facts by namespace, so once we reindex we can subsctract and figure out what facts need to be retracted
-
 
 * Notes
