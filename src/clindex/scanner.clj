@@ -131,17 +131,6 @@
    {}
    (vals all-projs)))
 
-(comment
-
-  (def all-projs (all-projects "/home/jmonetta/my-projects/clindex"
-                               {:platform ctnf/clj}))
-  (def all-projs (all-projects "/home/jmonetta/my-projects/district0x/memefactory"
-                               {:platform ctnf/cljs}))
-
-  (def all-projs-topo (topo-sort (vals all-projs)
-                                 :project/name
-                                 :project/dependencies))
- )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Namespaces scanning ;;
@@ -294,11 +283,10 @@
 
 (comment
 
-  (def all-ns (all-namespaces all-projs {:platform #_ctnf/clj ctnf/cljs}))
+  (def all-projs (all-projects "/home/jmonetta/my-projects/clindex" {:platform ctnf/clj}))
+  (def all-projs (all-projects "/home/jmonetta/my-projects/district0x/memefactory" {:platform ctnf/cljs}))
 
-  (def all-ns-topo (topo-sort (vals all-ns)
-                              :namespace/name
-                              :namespace/dependencies))
+  (def all-ns (all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs}))
 
   (map #(meta %) (ns-find/find-ns-decls [(io/file "/home/jmonetta/my-projects/district0x/memefactory/src")]))
 

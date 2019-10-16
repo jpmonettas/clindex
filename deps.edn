@@ -1,4 +1,4 @@
-{:paths ["resources" "src" "dev-src" "test"]
+{:paths ["resources" "src" "dev-src"]
  :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
         datascript                     {:mvn/version "0.17.1"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
