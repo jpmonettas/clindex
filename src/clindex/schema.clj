@@ -2,6 +2,7 @@
 
 (def schema
   {:project/name           {:db/cardinality :db.cardinality/one}
+   :project/version        {:db/cardinality :db.cardinality/one}
    :project/depends        {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :file/name              {:db/cardinality :db.cardinality/one}
    :namespace/name         {:db/cardinality :db.cardinality/one}

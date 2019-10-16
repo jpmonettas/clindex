@@ -8,12 +8,13 @@
 
 
 
-(defn- project-facts [{:keys [:project/name :project/dependencies] :as proj}]
+(defn- project-facts [{:keys [:project/name :project/dependencies :mvn/version] :as proj}]
   (let [proj-id (utils/project-id name)]
-    (->> [[:db/add proj-id :project/name name]]
-         (into (mapv (fn [dep-symb]
-                       [:db/add proj-id :project/depends (utils/project-id dep-symb)])
-                     (:project/dependencies proj))))))
+    (cond->> [[:db/add proj-id :project/name name]]
+      version      (into [[:db/add proj-id :project/version version]])
+      dependencies (into (mapv (fn [dep-symb]
+                                 [:db/add proj-id :project/depends (utils/project-id dep-symb)])
+                               dependencies)))))
 
 (defn- files-facts [{:keys [:project/files] :as proj}]
   (->> files
