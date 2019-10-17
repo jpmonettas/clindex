@@ -12,7 +12,7 @@
 
 (defn make-file
   ([path]
-   {:full-path path
+   {:full-path (.getAbsolutePath (io/file path))
     :content-url (io/as-url (File. path))})
   ([jar-path path]
    (let [full-path (jar-full-path jar-path path)]
