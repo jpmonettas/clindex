@@ -17,10 +17,14 @@
    :var/public?            {:db/cardinality :db.cardinality/one}
    :var/function           {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one :db/isComponent true}
    :var/refs               {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many :db/isComponent true}
+   :var/protocol?          {:db/cardinality :db.cardinality/one}
+
 
    :function/macro?        {:db/cardinality :db.cardinality/one}
    :function/source-form   {:db/cardinality :db.cardinality/one}
    :function/source-str    {:db/cardinality :db.cardinality/one}
+   :function/proto-var     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+
 
    :var-ref/line           {:db/cardinality :db.cardinality/one}
    :var-ref/col            {:db/cardinality :db.cardinality/one}

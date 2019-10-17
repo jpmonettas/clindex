@@ -40,9 +40,15 @@
   (defn-facts ctx name form true))
 
 (defmethod form-facts 'defprotocol
-  [all-ns-map ctx [_ pname]]
-  {:facts []
-   :ctx (merge ctx {:in-protocol pname})})
+  [all-ns-map ctx [_ pname & r]]
+  (let [ns-name (:namespace/name ctx)
+        var-id (utils/var-id ns-name pname)]
+    {:facts (-> [[:db/add var-id :var/protocol? true]]
+                (into (->> r
+                           (filter list?)
+                           (map (fn [[f-name]]
+                                  [:db/add (utils/function-id ns-name f-name) :function/proto-var var-id])))))
+    :ctx (merge ctx {:in-protocol pname})}))
 
 (defmethod form-facts :default
   [all-ns-map ctx form]

@@ -24,7 +24,9 @@
       (is (= (dissoc test-code-ns :namespace/file-content-path)
              (quote #:namespace{:macros #{some-macro},
                                 :name test-code,
-                                :public-vars #{some-function},
+                                :public-vars
+                                #{the-multi-method some-function TheProtocol
+                                  do-something},
                                 :private-vars #{},
                                 :project clindex/main-project,
                                 :dependencies #{clojure.core clojure.string},
@@ -51,7 +53,17 @@
                                     [arg1 arg2]
                                     (let [a 1 b (+ arg1 arg2)] (+ a b))),
                                   :form-str
-                                  "(defn some-function [arg1 arg2]\n  ;; Some comment\n  (let [a 1\n        b (+ arg1 arg2)]\n    (+ a b)))"})}))))))
+                                  "(defn some-function [arg1 arg2]\n  ;; Some comment\n  (let [a 1\n        b (+ arg1 arg2)]\n    (+ a b)))"}
+                                 {:form-list
+                                  (defprotocol TheProtocol (do-something [_])),
+                                  :form-str
+                                  "(defprotocol TheProtocol\n  (do-something [_]))"}
+                                 {:form-list (defmulti the-multi-method type),
+                                  :form-str "(defmulti the-multi-method type)"}
+                                 {:form-list
+                                  (defmethod the-multi-method java.lang.String [s] s),
+                                  :form-str
+                                  "(defmethod the-multi-method java.lang.String\n  [s]\n  s)"})}))))))
 
 (deftest scan-all-namespaces-test
   ;; TODO: this should be really checked by counting clojure.core with a text editor
@@ -72,7 +84,7 @@
                                                           when-class and when-some ->> refer-clojure}))
           "Namespace macros weren't parsed correctly")
 
-      (is (= (count (:namespace/public-vars clojure-core-ns)) 527)
+      (is (= (count (:namespace/public-vars clojure-core-ns)) 528)
           "Public vars count doesn't match")
 
       (is (= (count (:namespace/private-vars clojure-core-ns)) 30)

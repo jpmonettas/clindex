@@ -143,7 +143,9 @@
           form)))
     form))
 
-(defn- all-vars [all-ns-map]
+(defn- all-vars
+  "Return all the vars defined in all namespaces like [var-namespace var-name]"
+  [all-ns-map]
   (->> (vals all-ns-map)
        (mapcat (fn [ns]
                  (let [ns-vars (-> (:namespace/public-vars ns)
@@ -165,41 +167,42 @@
     (loop [zloc (utils/code-zipper form)
            facts []
            ctx {:namespace/name ns-symb}]
-     (if (zip/end? zloc)
-       facts
-       (let [token (zip/node zloc)]
+      (if (zip/end? zloc)
+        facts
+        (let [token (zip/node zloc)]
 
-         (cond
-           ;; we are looking at a form
-           ;; lets collect this form facts
-           (list? token)
-           (let [form' (fully-qualify-form-first-symb all-ns-map ns-symb token)
-                 {ffacts :facts fctx :ctx} (form-facts all-ns-map ctx form')]
-             (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
-                    (into facts ffacts)
-                    (merge ctx fctx)))
+          (cond
+            ;; we are deep looking at a form
+            ;; lets collect this form facts
+            (list? token)
+            (let [form' (fully-qualify-form-first-symb all-ns-map ns-symb token)
+                  {ffacts :facts fctx :ctx} (form-facts all-ns-map ctx form')]
+              (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
+                     (into facts ffacts)
+                     (merge ctx fctx)))
 
-           ;; we are looking at a symbol
-           (symbol? token)
-           (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
-                  (let [fq-symb (fully-qualify-symb all-ns-map ns-symb token)
-                        var (split-symb-namespace fq-symb)]
-                    (if (is-var var)
-                      (let [[var-ns var-symb] var
-                            {:keys [line column]} (meta (zip/node zloc))
-                            vr-id (utils/var-ref-id var-ns var-symb ns-symb line column)]
-                        (into facts (cond-> [[:db/add (utils/var-id var-ns var-symb) :var/refs vr-id]
-                                             [:db/add vr-id :var-ref/namespace (utils/namespace-id ns-symb)]
-                                             [:db/add vr-id :var-ref/in-function (utils/function-id ns-symb (:in-function ctx))]]
-                                      line (into [[:db/add vr-id :var-ref/line line]])
-                                      column (into [[:db/add vr-id :var-ref/column column]]))))
-                      facts))
-                  ctx)
+            ;; we are deep looking at a symbol
+            (symbol? token)
+            (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
+                   (let [fq-symb (fully-qualify-symb all-ns-map ns-symb token)
+                         var (split-symb-namespace fq-symb)]
+                     (if (and (is-var var)
+                              (not (:in-protocol ctx)))
+                       (let [[var-ns var-symb] var
+                             {:keys [line column]} (meta (zip/node zloc))
+                             vr-id (utils/var-ref-id var-ns var-symb ns-symb line column)]
+                         (into facts (cond-> [[:db/add (utils/var-id var-ns var-symb) :var/refs vr-id]
+                                              [:db/add vr-id :var-ref/namespace (utils/namespace-id ns-symb)]
+                                              [:db/add vr-id :var-ref/in-function (utils/function-id ns-symb (:in-function ctx))]]
+                                       line (into [[:db/add vr-id :var-ref/line line]])
+                                       column (into [[:db/add vr-id :var-ref/column column]]))))
+                       facts))
+                   ctx)
 
-           :else
-           (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
-                  facts
-                  ctx)))))))
+            :else
+            (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
+                   facts
+                   ctx)))))))
 
 (defn- enhance-form-list [form-list form-str all-ns-map ns-symb]
   (let [form-list' (walk/postwalk
@@ -221,12 +224,18 @@
               (enhance-form-list form-list form-str all-ns-map ns-symb)))
        (mapcat (partial deep-form-facts all-ns-map ns-symb))))
 
-(defn- source-facts [all-ns-map]
-  (let [all-ns-facts (mapcat namespace-facts (vals all-ns-map))
-        all-ns-form-facts (mapcat (fn [[ns-symb _]] (namespace-forms-facts all-ns-map ns-symb)) all-ns-map)]
-    (-> []
-        (into all-ns-facts)
-        (into all-ns-form-facts))))
+;; TODO define spec here
+(defn namespace-full-facts [all-ns-map ns-symb]
+  (into (namespace-facts (get all-ns-map ns-symb))
+        (namespace-forms-facts all-ns-map ns-symb)))
+
+;; (defn- source-facts [all-ns-map]
+;;   (let [all-ns-facts (mapcat namespace-facts (vals all-ns-map))
+;;         all-ns-form-facts (mapcat (fn [[ns-symb _]] (namespace-forms-facts all-ns-map ns-symb)) all-ns-map)]
+;;     (-> []
+;;         (into all-ns-facts)
+;;         (into all-ns-form-facts))))
+
 
 (s/fdef all-facts
     :args (s/cat :m (s/keys :req-un [:scanner/projects
@@ -236,7 +245,7 @@
 (defn all-facts [{:keys [projects namespaces]}]
   (let [all-projs-facts (mapcat project-facts (vals projects))
         all-files-facts (mapcat files-facts (vals projects))
-        all-source-facts (source-facts namespaces)]
+        all-source-facts (mapcat (fn [[ns-symb _]] (namespace-full-facts namespaces ns-symb)) namespaces)]
     (-> []
         (into all-projs-facts)
         (into all-files-facts)

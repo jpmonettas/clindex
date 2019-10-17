@@ -192,7 +192,17 @@
        vname))
 
 (defn- public-vars [ns-forms]
-  (into #{} (keep form-public-var ns-forms)))
+  (->> ns-forms
+       (mapcat (fn [form]
+                 (when-let [symb (and (list? form) (first form))]
+                   (when-let [pv (form-public-var form)]
+                     (cond-> [pv]
+                       ;; when defprotocol   ;; grab all proto fns names
+                       (= symb 'defprotocol) (into (->> form
+                                                        (filter list?)
+                                                        (map first))))))))
+       (remove nil?)
+       (into #{})))
 
 (defn- form-macro
   "If form defines a macro, returns the macro name, nil otherwise"
