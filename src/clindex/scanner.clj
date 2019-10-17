@@ -7,13 +7,14 @@
             [clojure.java.io :as io]
             [clojure.tools.namespace.parse :as ns-parse]
             [clojure.tools.namespace.find :as ns-find]
+            [clojure.tools.namespace.file :as ns-file]
+            [clojure.tools.namespace.find :as ctnf]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as reader-types]
             [clojure.pprint :refer [pprint] :as pprint]
             [clojure.spec.alpha :as s]
             [cljs.core.specs.alpha :as cljs-spec]
             [cljs.tagged-literals :as tags]
-            [clojure.tools.namespace.find :as ctnf]
             [clojure.spec.alpha :as s]
             [clindex.specs]))
 
@@ -84,12 +85,12 @@
                     (utils/jar-files p interested-in?)
                     (utils/all-files p interested-in?)))))))
 
-(s/fdef all-projects
+(s/fdef scan-all-projects
   :args (s/cat :base-dir :file/path
                :opts (s/keys :req-un [:scanner/platform]))
   :ret :scanner/projects)
 
-(defn all-projects
+(defn scan-all-projects
   "Given a base dir retrieves all projects (including base one) and all its dependencies.
   Returns a map like {proj-symb {:project/dependencies #{}
                                  :project/name proj-symb
@@ -129,14 +130,16 @@
     (dep/graph)
     xs)))
 
-(defn- build-file->project-map [all-projs]
-  (reduce (fn [files-map {:keys [:project/name :project/files]}]
-            (reduce (fn [fm f]
-                      (assoc fm (or (:jar f) (:full-path f)) name))
-             files-map
-             files))
-   {}
-   (vals all-projs)))
+(def build-file->project-map
+  (memoize
+   (fn [all-projs]
+     (reduce (fn [files-map {:keys [:project/name :project/files]}]
+               (reduce (fn [fm f]
+                         (assoc fm (or (:jar f) (:full-path f)) name))
+                       files-map
+                       files))
+             {}
+             (vals all-projs)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -239,67 +242,92 @@
   ;; TODO implement this
   {})
 
-(defn- data-readers [all-projs]
-  ;; TODO implement this
-  {})
+(def data-readers
+  (memoize
+   (fn [all-projs]
+     ;; TODO implement this
+     {})))
 
-(s/fdef all-namespaces
+(defn- scan-namespace-decl [ns-decl all-projs platform]
+  (let [file->proj (build-file->project-map all-projs)
+        readers (data-readers all-projs)]
+    (let [jar (when-let [jf (-> ns-decl meta :jar-file)]
+                (.getName jf))
+          file (-> ns-decl meta :file io/file)
+          file-content-path (if jar
+                              (utils/jar-full-path jar (.getPath file))
+                              file)
+          alias-map (merge (aliases-from-ns-decl ns-decl platform)
+                           (aliases-from-alias-forms file))
+          ns-forms (read-namespace-forms file-content-path alias-map readers (:read-opts platform))
+          ns-form-lists (map :form-list ns-forms)
+          pub-vars (public-vars ns-form-lists)
+          priv-vars (private-vars ns-form-lists)
+          ns-name (ns-parse/name-from-ns-decl ns-decl)]
+      ;; TODO probably around here we need to deal with the feature of cljs that lets you
+      ;; require clojure.set but that is kind of a alias to cljs.set
+      [ns-name {:namespace/name ns-name
+                :namespace/alias-map alias-map
+                :namespace/dependencies (conj (ns-parse/deps-from-ns-decl ns-decl) ;; implicitly requiered in clojure ns
+                                              (cond
+                                                (= platform ctnf/clj) 'clojure.core
+                                                (= platform ctnf/cljs) 'cljs.core))
+                :namespace/file-content-path file-content-path
+                :namespace/project (file->proj (or jar (.getAbsolutePath file)))
+                :namespace/forms ns-forms
+                :namespace/public-vars pub-vars
+                :namespace/private-vars priv-vars
+                :namespace/macros (macros ns-form-lists)}])))
+
+(defn- merge-namespaces
+  "Given a list of [ns-name ns-map] returns a map like {ns-name ns-map}
+  with same namespaces correctly merged."
+  [all-ns]
+  (reduce
+   (fn [r [ns-name ns-map]]
+     (update r ns-name (fn [m]
+                         (if m
+                           (-> m
+                               (update :namespace/alias-map merge (:namespace/alias-map ns-map))
+                               (update :namespace/dependencies (fnil into #{}) (:namespace/dependencies ns-map))
+                               (update :namespace/forms (fnil into #{}) (:namespace/forms ns-map))
+                               (update :namespace/public-vars (fnil into #{}) (:namespace/public-vars ns-map))
+                               (update :namespace/private-vars (fnil into #{}) (:namespace/private-vars ns-map))
+                               (update :namespace/macros (fnil into #{}) (:namespace/macros ns-map)))
+                           ns-map))))
+   {}
+   all-ns))
+
+(s/fdef scan-namespace
+  :args (s/cat :ns-file-path string?
+               :all-projs :scanner/projects
+               :opts (s/keys :req-un [:scanner/platform]))
+  :ret :scanner/namespace)
+
+(defn scan-namespace [ns-file-path all-projs {:keys [platform] :as opts}]
+  (let [ns-file (io/file ns-file-path)
+        [_ ns-map] (scan-namespace-decl (with-meta (ns-file/read-file-ns-decl ns-file platform) {:file (.getAbsolutePath ns-file)})
+                                        all-projs
+                                        platform)]
+    ns-map))
+
+(s/fdef scan-all-namespaces
   :args (s/cat :all-projs :scanner/projects
                :opts (s/keys :req-un [:scanner/platform]))
   :ret :scanner/namespaces)
 
-(defn all-namespaces [all-projs {:keys [platform] :as opts}]
-  (let [readers (data-readers all-projs)
-        file->proj (build-file->project-map all-projs)
-        all-paths (reduce (fn [r {:keys [:paths]}]
+(defn scan-all-namespaces [all-projs {:keys [platform] :as opts}]
+  (let [all-paths (reduce (fn [r {:keys [:paths]}]
                             (into r paths))
                           #{}
                           (vals all-projs))]
+
     (->> (ns-find/find-ns-decls (map io/file all-paths) platform)
-         (map (fn [ns-decl]
-                (let [jar (when-let [jf (-> ns-decl meta :jar-file)]
-                            (.getName jf))
-                      file (-> ns-decl meta :file io/file)
-                      file-content-path (if jar
-                                          (utils/jar-full-path jar (.getPath file))
-                                          file)
-                      alias-map (merge (aliases-from-ns-decl ns-decl platform)
-                                       (aliases-from-alias-forms file))
-                      ns-forms (read-namespace-forms file-content-path alias-map readers (:read-opts platform))
-                      ns-form-lists (map :form-list ns-forms)
-                      pub-vars (public-vars ns-form-lists)
-                      priv-vars (private-vars ns-form-lists)
-                      ns-name (ns-parse/name-from-ns-decl ns-decl)]
-                  ;; TODO probably around here we need to deal with the feature of cljs that lets you
-                  ;; require clojure.set but that is kind of a alias to cljs.set
-                  [ns-name {:namespace/name ns-name
-                            :namespace/alias-map alias-map
-                            :namespace/dependencies (conj (ns-parse/deps-from-ns-decl ns-decl) ;; implicitly requiered in clojure ns
-                                                          (cond
-                                                            (= platform ctnf/clj) 'clojure.core
-                                                            (= platform ctnf/cljs) 'cljs.core))
-                            :namespace/file-content-path file-content-path
-                            :namespace/project (file->proj (or jar (.getAbsolutePath file)))
-                            :namespace/forms ns-forms
-                            :namespace/public-vars pub-vars
-                            :namespace/private-vars priv-vars
-                            :namespace/macros (macros ns-form-lists)}])))
-         ;; need to combine since we can have the same namespace in different files like in
+         (map (fn [ns-decl] (scan-namespace-decl ns-decl all-projs platform)))
+         ;; need to merge namespaces since we can have the same namespace in different files like in
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljc
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljs
-         (reduce
-          (fn [r [ns-name ns-map]]
-            (update r ns-name (fn [m]
-                                (if m
-                                  (-> m
-                                      (update :namespace/alias-map merge (:namespace/alias-map ns-map))
-                                      (update :namespace/dependencies (fnil into #{}) (:namespace/dependencies ns-map))
-                                      (update :namespace/forms (fnil into #{}) (:namespace/forms ns-map))
-                                      (update :namespace/public-vars (fnil into #{}) (:namespace/public-vars ns-map))
-                                      (update :namespace/private-vars (fnil into #{}) (:namespace/private-vars ns-map))
-                                      (update :namespace/macros (fnil into #{}) (:namespace/macros ns-map)))
-                                  ns-map))))
-          {}))))
+         (merge-namespaces))))
 
 (s/fdef scan-all
   :args (s/cat :base-dir :file/path
@@ -308,16 +336,17 @@
                         :scanner/namespaces]))
 
 (defn scan-all [base-dir opts]
-  (let [projects (all-projects base-dir opts)]
+  (let [projects (scan-all-projects base-dir opts)]
     {:projects projects
-     :namespaces (all-namespaces projects opts)}))
+     :namespaces (scan-all-namespaces projects opts)}))
 
 (comment
 
-  (def all-projs (all-projects "/home/jmonetta/my-projects/clindex" {:platform ctnf/clj}))
-  (def all-projs (all-projects "/home/jmonetta/my-projects/district0x/memefactory" {:platform ctnf/cljs}))
+  (def all-projs (scan-all-projects "/home/jmonetta/my-projects/clindex" {:platform ctnf/clj}))
+  (def all-projs (scan-all-projects "/home/jmonetta/my-projects/district0x/memefactory" {:platform ctnf/cljs}))
 
-  (def all-ns (all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs}))
+  (def test-ns (scan-namespace "/home/jmonetta/my-projects/clindex/src/clindex/indexer.clj" all-projs {:platform ctnf/clj #_ctnf/cljs}))
+  (def all-ns (scan-all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs}))
 
   (map #(meta %) (ns-find/find-ns-decls [(io/file "/home/jmonetta/my-projects/district0x/memefactory/src")]))
 

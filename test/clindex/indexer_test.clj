@@ -12,8 +12,8 @@
 
 (defn with-scanned-projs-and-namespaces [f]
   (stest/instrument)
-  (alter-var-root (var all-projects) (constantly (scanner/all-projects (str (io/file "./test-resources/test-project")) {:platform ctnf/clj})))
-  (alter-var-root (var all-namespaces) (constantly (scanner/all-namespaces all-projects {:platform ctnf/clj})))
+  (alter-var-root (var all-projects) (constantly (scanner/scan-all-projects (str (io/file "./test-resources/test-project")) {:platform ctnf/clj})))
+  (alter-var-root (var all-namespaces) (constantly (scanner/scan-all-namespaces all-projects {:platform ctnf/clj})))
   (f)
   (stest/unstrument))
 
@@ -64,8 +64,8 @@
 
 
 (comment
-  (def all-projs (scanner/all-projects (str (io/file "./test-resources/test-project")) {:platform ctnf/clj}))
-  (def all-namespaces  (scanner/all-namespaces all-projs {:platform ctnf/clj}))
+  (def all-projs (scanner/scan-all-projects (str (io/file "./test-resources/test-project")) {:platform ctnf/clj}))
+  (def all-namespaces  (scanner/scan-all-namespaces all-projs {:platform ctnf/clj}))
 
   (#'indexer/namespace-forms-facts all-namespaces 'test-code)
 

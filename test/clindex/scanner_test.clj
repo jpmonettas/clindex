@@ -10,16 +10,17 @@
 
 (defn with-scanned-projs-and-namespaces [f]
   (stest/instrument)
-  (alter-var-root (var all-projects) (constantly (scanner/all-projects (str (io/file "./test-resources/test-project")) {:platform ctnf/clj})))
-  (alter-var-root (var all-namespaces) (constantly (scanner/all-namespaces all-projects {:platform ctnf/clj})))
+  (alter-var-root (var all-projects) (constantly (scanner/scan-all-projects (str (io/file "./test-resources/test-project")) {:platform ctnf/clj})))
+  (alter-var-root (var all-namespaces) (constantly (scanner/scan-all-namespaces all-projects {:platform ctnf/clj})))
   (f)
   (stest/unstrument))
 
 (use-fixtures :once with-scanned-projs-and-namespaces)
 
-(deftest all-namespaces-test
-  (testing "Test code namespace should be correctly parsed"
-    (let [test-code-ns (get all-namespaces 'test-code)]
+(deftest scan-namespace-test
+  (testing "Test code namespace should be correctly scanned"
+    (let [test-code-path (.getAbsolutePath (io/file "./test-resources/test-project/src/test_code.cljc"))
+          test-code-ns (scanner/scan-namespace test-code-path all-projects {:platform ctnf/clj})]
       (is (= (dissoc test-code-ns :namespace/file-content-path)
              (quote #:namespace{:macros #{some-macro},
                                 :name test-code,
@@ -50,8 +51,9 @@
                                     [arg1 arg2]
                                     (let [a 1 b (+ arg1 arg2)] (+ a b))),
                                   :form-str
-                                  "(defn some-function [arg1 arg2]\n  ;; Some comment\n  (let [a 1\n        b (+ arg1 arg2)]\n    (+ a b)))"})})))))
+                                  "(defn some-function [arg1 arg2]\n  ;; Some comment\n  (let [a 1\n        b (+ arg1 arg2)]\n    (+ a b)))"})}))))))
 
+(deftest scan-all-namespaces-test
   ;; TODO: this should be really checked by counting clojure.core with a text editor
   (testing "Dependency code namespace should be correctly parsed"
     (let [clojure-core-ns (get all-namespaces 'clojure.core)]
