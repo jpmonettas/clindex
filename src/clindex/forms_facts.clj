@@ -46,9 +46,31 @@
     {:facts (-> [[:db/add var-id :var/protocol? true]]
                 (into (->> r
                            (filter list?)
-                           (map (fn [[f-name]]
-                                  [:db/add (utils/function-id ns-name f-name) :function/proto-var var-id])))))
-    :ctx (merge ctx {:in-protocol pname})}))
+                           (mapcat (fn [[f-name]]
+                                     (let [fid (utils/function-id ns-name f-name)]
+                                      [[:db/add fid :function/proto-var var-id]
+                                       [:db/add (utils/var-id ns-name f-name) :var/function fid]]))))))
+     :ctx (merge ctx {:in-protocol pname})}))
+
+(defmethod form-facts 'clojure.core/defmulti [all-ns-map ctx [_ var-name dispatch-form]]
+  (let [ns-name (:namespace/name ctx)
+        multi-id (utils/multi-id ns-name var-name)]
+    {:facts [[:db/add (utils/var-id ns-name var-name) :var/multi multi-id]
+             [:db/add multi-id :multi/dispatch-form dispatch-form]]
+    :ctx ctx}))
+
+(defmethod form-facts 'clojure.core/defmethod [all-ns-map ctx [_ var-name dispatch-val :as form]]
+  (let [ns-name (:namespace/name ctx)
+        form-str (:form-str (meta form))
+        multi-id (utils/multi-id ns-name var-name)
+        method-id (utils/multimethod-id ns-name var-name dispatch-val)]
+    {:facts (cond-> [[:db/add multi-id :multi/methods method-id]
+                     ;; multimethods can dispatch on nil but we can't create a nil valued fact so
+                     ;; lets use nil-value symbol
+                     [:db/add method-id :multimethod/dispatch-val (or dispatch-val 'nil-value)]
+                     [:db/add method-id :multimethod/source-form (vary-meta form dissoc :form-str)]]
+              form-str (into [[:db/add method-id :multimethod/source-str form-str]]))
+    :ctx ctx}))
 
 (defmethod form-facts :default
   [all-ns-map ctx form]

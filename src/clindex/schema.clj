@@ -18,6 +18,7 @@
    :var/function           {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one :db/isComponent true}
    :var/refs               {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many :db/isComponent true}
    :var/protocol?          {:db/cardinality :db.cardinality/one}
+   :var/multi              {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one :db/isComponent true}
 
 
    :function/macro?        {:db/cardinality :db.cardinality/one}
@@ -25,6 +26,12 @@
    :function/source-str    {:db/cardinality :db.cardinality/one}
    :function/proto-var     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
 
+   :multi/dispatch-form    {:db/cardinality :db.cardinality/one}
+   :multi/methods          {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many :db/isComponent true}
+
+   :multimethod/dispatch-val {:db/cardinality :db.cardinality/one}
+   :multimethod/source-form  {:db/cardinality :db.cardinality/one}
+   :multimethod/source-str   {:db/cardinality :db.cardinality/one}
 
    :var-ref/line           {:db/cardinality :db.cardinality/one}
    :var-ref/col            {:db/cardinality :db.cardinality/one}

@@ -224,7 +224,12 @@
               (enhance-form-list form-list form-str all-ns-map ns-symb)))
        (mapcat (partial deep-form-facts all-ns-map ns-symb))))
 
-;; TODO define spec here
+
+(s/fdef namespace-full-facts
+  :args (s/cat :all-ns-map :scanner/namespaces
+               :ns-symb :namespace/name)
+  :ret (s/coll-of :datomic/fact))
+
 (defn namespace-full-facts [all-ns-map ns-symb]
   (into (namespace-facts (get all-ns-map ns-symb))
         (namespace-forms-facts all-ns-map ns-symb)))

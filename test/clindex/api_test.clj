@@ -22,16 +22,32 @@
     (testing "Pulling namespace should pull all components"
       (is (= (d/pull db [:*] test-code-ns-id)
              '{:db/id 1653199087,
-               :namespace/file #:db{:id 1221102050},
+               :namespace/file #:db{:id 513126778},
                :namespace/name test-code,
                :namespace/vars
                [{:db/id 189378944,
+                 :var/function
+                 {:db/id 1493209856, :function/proto-var #:db{:id 453362419}},
                  :var/line 15,
                  :var/name do-something,
                  :var/namespace 1653199087,
                  :var/public? true}
                 {:db/id 422022587,
                  :var/line 17,
+                 :var/multi
+                 {:db/id 610769301,
+                  :multi/dispatch-form type,
+                  :multi/methods
+                  [{:db/id 654778333,
+                    :multimethod/dispatch-val java.lang.String,
+                    :multimethod/source-form
+                    (clojure.core/defmethod
+                      the-multi-method
+                      java.lang.String
+                      [s]
+                      s),
+                    :multimethod/source-str
+                    "(defmethod the-multi-method java.lang.String\n  [s]\n  s)"}]},
                  :var/name the-multi-method,
                  :var/namespace 1653199087,
                  :var/public? true,

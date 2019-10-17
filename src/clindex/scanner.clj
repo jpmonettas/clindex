@@ -266,7 +266,7 @@
           file (-> ns-decl meta :file io/file)
           file-content-path (if jar
                               (utils/jar-full-path jar (.getPath file))
-                              file)
+                              (.getAbsolutePath file))
           alias-map (merge (aliases-from-ns-decl ns-decl platform)
                            (aliases-from-alias-forms file))
           ns-forms (read-namespace-forms file-content-path alias-map readers (:read-opts platform))

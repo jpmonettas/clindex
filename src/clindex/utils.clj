@@ -98,6 +98,12 @@
 (defn function-id [namespace-symb var-symb]
   (stable-id :function namespace-symb var-symb))
 
+(defn multi-id [namespace-symb var-symb]
+  (stable-id :multi namespace-symb var-symb))
+
+(defn multimethod-id [namespace-symb var-symb dispatch-val]
+  (stable-id :multimethod namespace-symb var-symb dispatch-val))
+
 (defn rectangle-select
   "Given a string with lines, returns a string with the subregion
   between l1 and l2 lines and c1 and c2 columns.
