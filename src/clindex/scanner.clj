@@ -155,7 +155,11 @@
                                              {:path full-path
                                               :alias alias})
                                      'dummy.ns)))
-            reader/*read-eval* false]
+            reader/*read-eval* false
+            ;; read everythig as we are on the user namespace, this is only important when runnning from repl
+            ;; since if repl is on a different namespace, some symbols will be read with current namespace
+            ;; and some tests can fail
+            *ns* (the-ns 'user)]
     (try
       (let [file-str (slurp full-path)]
         (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" file-str "]"))

@@ -1,4 +1,4 @@
-{:paths ["resources" "src" "dev-src"]
+{:paths ["src"]
  :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
         datascript                     {:mvn/version "0.17.1"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
@@ -11,7 +11,8 @@
         jpmonettas/tools.namespace {:mvn/version "0.3.2"}
         }
  :aliases
- {:test {:extra-paths ["test"]
+ {:dev {:extra-paths ["dev-src"]}
+  :test {:extra-paths ["test"]
          :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}}}
   :runner
   {:extra-deps {com.cognitect/test-runner
