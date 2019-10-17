@@ -31,11 +31,12 @@
                                    (println (format "[Warning], no line meta for %s/%s" (:namespace/name ns) v)))
                                  (cond-> [[:db/add vid :var/name v]
                                           [:db/add vid :var/public? pub?]
-                                          [:db/add vid :var/namespace ns-id]]
+                                          [:db/add vid :var/namespace ns-id]
+                                          [:db/add ns-id :namespace/vars vid]]
                                    vline (into [[:db/add vid :var/line vline]]))))
                              vs))
         facts (-> [[:db/add ns-id :namespace/name (:namespace/name ns)]
-                   [:db/add ns-id :namespace/project (utils/project-id (:namespace/project ns))]
+                   [:db/add (utils/project-id (:namespace/project ns)) :project/namespaces ns-id]
                    [:db/add ns-id :namespace/file (utils/file-id (:namespace/file-content-path ns))]]
                   (into (vars-facts (:namespace/public-vars ns) true))
                   (into (vars-facts (:namespace/private-vars ns) false))
@@ -187,7 +188,7 @@
                       (let [[var-ns var-symb] var
                             {:keys [line column]} (meta (zip/node zloc))
                             vr-id (utils/var-ref-id var-ns var-symb ns-symb line column)]
-                        (into facts (cond-> [[:db/add vr-id :var-ref/var (utils/var-id var-ns var-symb)]
+                        (into facts (cond-> [[:db/add (utils/var-id var-ns var-symb) :var/refs vr-id]
                                              [:db/add vr-id :var-ref/namespace (utils/namespace-id ns-symb)]
                                              [:db/add vr-id :var-ref/in-function (utils/function-id ns-symb (:in-function ctx))]]
                                       line (into [[:db/add vr-id :var-ref/line line]])

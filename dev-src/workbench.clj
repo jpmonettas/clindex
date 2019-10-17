@@ -78,19 +78,19 @@
   ;; now you can query the dbs
   ;; lets query all the vars that start with "eval"
   (->> (d/q '[:find ?vname ?nname ?pname ?vline ?fname
-              :in $ ?text
-              :where
-              [?fid :file/name ?fname]
-              [?pid :project/name ?pname]
-              [?nid :namespace/file ?fid]
-              [?nid :namespace/project ?pid]
-              [?nid :namespace/name ?nname]
-              [?vid :var/namespace ?nid]
-              [?vid :var/name ?vname]
-              [?vid :var/line ?vline]
-              [(str/starts-with? ?vname ?text)]]
-            db
-            "eval")
+                  :in $ ?text
+                  :where
+                  [?fid :file/name ?fname]
+                  [?pid :project/name ?pname]
+                  [?nid :namespace/file ?fid]
+                  [?pid :project/namespaces ?nid]
+                  [?nid :namespace/name ?nname]
+                  [?nid :namespace/vars ?vid]
+                  [?vid :var/name ?vname]
+                  [?vid :var/line ?vline]
+                  [(str/starts-with? ?vname ?text)]]
+                db
+                "eval")
        (map #(zipmap [:name :ns :project :line :file] %))
        (pprint/print-table))
 

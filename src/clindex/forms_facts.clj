@@ -6,12 +6,12 @@
 
 (defn- defn-facts [ctx ns-name [_ fname :as form] macro?]
   {:facts (let [fid (utils/function-id ns-name fname)
-                form-str (:form-str (meta form))]
+                form-str (:form-str (meta form))
+                var-id (utils/var-id ns-name fname)]
             (when-not form-str
               (println "[Warning] not source-str for namespace" ns-name "at line" (:line (meta form)) "skipping"))
 
-            (cond-> [[:db/add fid :function/var (utils/var-id ns-name fname)]
-                     [:db/add fid :function/namespace (utils/namespace-id ns-name)]
+            (cond-> [[:db/add var-id :var/function fid]
                      [:db/add fid :function/source-form (vary-meta form dissoc :form-str)]]
 
               form-str

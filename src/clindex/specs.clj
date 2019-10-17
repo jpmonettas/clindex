@@ -39,8 +39,8 @@
 (s/def :namespace/file-content-path string?) ;; TODO figure this out
 (s/def :form/list any?)
 (s/def :from/str string?)
-(s/def :namespace/forms (s/keys :req-un [:form/list
-                                         :from/str]))
+(s/def :namespace/forms (s/coll-of (s/keys :req-un [:form/list
+                                                    :from/str])))
 (s/def :namespace/alias-map (s/map-of symbol? :namespace/name))
 (s/def :scanner/namespace (s/keys :req [:namespace/project
                                         :namespace/name

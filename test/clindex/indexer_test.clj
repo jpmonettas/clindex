@@ -50,7 +50,7 @@
   (let [test-code-facts (#'indexer/namespace-forms-facts all-namespaces 'test-code)
         facts-count (count-facts-by-attr test-code-facts)]
 
-    (is (= (:function/var facts-count) 2)
+    (is (= (:var/function facts-count) 2)
         "Should index 2 function vars for test-code namespace")
 
     (is (= (:function/macro? facts-count) 1)
