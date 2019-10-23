@@ -1,6 +1,6 @@
 (ns clindex.specs
   (:require [clojure.spec.alpha :as s]
-            [clojure.tools.namespace.find :as ctnf]))
+            [clojure.tools.namespace.find :as ns-find]))
 
 (s/def :file/path string?)
 (s/def :datomic/fact vector?)
@@ -54,4 +54,4 @@
                                         :namespace/alias-map]))
 (s/def :scanner/namespaces (s/map-of :namespace/name :scanner/namespace))
 
-(s/def :scanner/platform #{ctnf/clj ctnf/cljs})
+(s/def :scanner/platform #{ns-find/clj ns-find/cljs})

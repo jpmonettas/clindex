@@ -8,7 +8,6 @@
             [clojure.tools.namespace.parse :as ns-parse]
             [clojure.tools.namespace.find :as ns-find]
             [clojure.tools.namespace.file :as ns-file]
-            [clojure.tools.namespace.find :as ctnf]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as reader-types]
             [clojure.pprint :refer [pprint] :as pprint]
@@ -96,7 +95,7 @@
                                  :project/name proj-symb
                                  :project/files #{}
                                  :paths []}}"
-  [base-dir {:keys [platform] :as opts}]
+  [base-dir opts]
   (let [proj (find-project-in-dir base-dir)
         all-projs (tools-dep/resolve-deps (assoc proj :mvn/repos mvn-repos) nil)]
     (->> (assoc all-projs main-project-symb (-> proj
@@ -153,11 +152,11 @@
             reader/*alias-map* (fn [alias]
                                  (if-let [ns (get alias-map alias)]
                                    ns
-                                   (do
-                                     (println "[Warning] couldn't resolve alias, resolving to dummy.ns"
+                                   (let [unresolved-ns (symbol "unresolved" (str alias))]
+                                     (println "[Warning] couldn't resolve alias, resolving to " unresolved-ns
                                              {:path full-path
                                               :alias alias})
-                                     'dummy.ns)))
+                                     unresolved-ns)))
             reader/*read-eval* false
             ;; read everythig as we are on the user namespace, this is only important when runnning from repl
             ;; since if repl is on a different namespace, some symbols will be read with current namespace
@@ -227,8 +226,8 @@
 (defn- aliases-from-ns-decl [ns-form platform]
   ;; clojure ns-form spec doesn't work for cljs ns declarations
   (let [spec (cond
-               (= platform ctnf/clj) :clojure.core.specs.alpha/ns-form
-               (= platform ctnf/cljs) ::cljs-spec/ns-form)
+               (= platform ns-find/clj) :clojure.core.specs.alpha/ns-form
+               (= platform ns-find/cljs) ::cljs-spec/ns-form)
         ns-form-ast (s/conform spec (rest ns-form))
         requires (->> (:ns-clauses ns-form-ast)
                       (into {})
@@ -241,8 +240,8 @@
                        ;; ns-form specs doesn't conform to the same for cljs and clj :(
                        ;; so patching it here
                        [alias (cond
-                                (= platform ctnf/clj) lib
-                                (= platform ctnf/cljs) (second lib))]))
+                                (= platform ns-find/clj) lib
+                                (= platform ns-find/cljs) (second lib))]))
                    (catch Exception e
                      (prn "[Warning] problem while building alias map for " {:ns-form ns-form
                                                                              :sub-part x})))))
@@ -266,7 +265,7 @@
           file (-> ns-decl meta :file io/file)
           file-content-path (if jar
                               (utils/jar-full-path jar (.getPath file))
-                              (.getAbsolutePath file))
+                              (utils/normalize-path file))
           alias-map (merge (aliases-from-ns-decl ns-decl platform)
                            (aliases-from-alias-forms file))
           ns-forms (read-namespace-forms file-content-path alias-map readers (:read-opts platform))
@@ -278,12 +277,15 @@
       ;; require clojure.set but that is kind of a alias to cljs.set
       [ns-name {:namespace/name ns-name
                 :namespace/alias-map alias-map
-                :namespace/dependencies (conj (ns-parse/deps-from-ns-decl ns-decl) ;; implicitly requiered in clojure ns
-                                              (cond
-                                                (= platform ctnf/clj) 'clojure.core
-                                                (= platform ctnf/cljs) 'cljs.core))
+                :namespace/dependencies (let [deps (ns-parse/deps-from-ns-decl ns-decl)]
+                                          (if-not (#{'clojure.core 'cljs.core} ns-name)
+                                           (conj deps
+                                                 (cond ;; add c.core as a dependency if it is not itself
+                                                   (= platform ns-find/clj) 'clojure.core
+                                                   (= platform ns-find/cljs) 'cljs.core))
+                                           deps))
                 :namespace/file-content-path file-content-path
-                :namespace/project (file->proj (or jar (.getAbsolutePath file)))
+                :namespace/project (file->proj (or jar (utils/normalize-path file)))
                 :namespace/forms ns-forms
                 :namespace/public-vars pub-vars
                 :namespace/private-vars priv-vars
@@ -321,18 +323,19 @@
                                         platform)]
     ns-map))
 
-(s/fdef scan-all-namespaces
+(s/fdef scan-namespaces
   :args (s/cat :all-projs :scanner/projects
                :opts (s/keys :req-un [:scanner/platform]))
   :ret :scanner/namespaces)
 
-(defn scan-all-namespaces [all-projs {:keys [platform] :as opts}]
-  (let [all-paths (reduce (fn [r {:keys [:paths]}]
-                            (into r paths))
-                          #{}
-                          (vals all-projs))]
+(defn scan-namespaces [all-projs {:keys [platform] :as opts}]
+  (let [all-paths (->> (vals all-projs)
+                       (reduce (fn [r {:keys [:paths]}]
+                                 (into r paths))
+                               #{})
+                       (map io/file))]
 
-    (->> (ns-find/find-ns-decls (map io/file all-paths) platform)
+    (->> (ns-find/find-ns-decls all-paths platform)
          (map (fn [ns-decl] (scan-namespace-decl ns-decl all-projs platform)))
          ;; need to merge namespaces since we can have the same namespace in different files like in
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljc
@@ -348,15 +351,15 @@
 (defn scan-all [base-dir opts]
   (let [projects (scan-all-projects base-dir opts)]
     {:projects projects
-     :namespaces (scan-all-namespaces projects opts)}))
+     :namespaces (scan-namespaces projects opts)}))
 
 (comment
 
-  (def all-projs (scan-all-projects "/home/jmonetta/my-projects/clindex" {:platform ctnf/clj}))
-  (def all-projs (scan-all-projects "/home/jmonetta/my-projects/district0x/memefactory" {:platform ctnf/cljs}))
+  (def all-projs (scan-all-projects "/home/jmonetta/my-projects/clindex" {:platform ns-find/clj}))
+  (def all-projs (scan-all-projects "/home/jmonetta/my-projects/district0x/memefactory" {:platform ns-find/cljs}))
 
-  (def test-ns (scan-namespace "/home/jmonetta/my-projects/clindex/src/clindex/indexer.clj" all-projs {:platform ctnf/clj #_ctnf/cljs}))
-  (def all-ns (scan-all-namespaces all-projs {:platform ctnf/clj #_ctnf/cljs}))
+  (def test-ns (scan-namespace "/home/jmonetta/my-projects/clindex/src/clindex/indexer.clj" all-projs {:platform ns-find/clj #_ns-find/cljs}))
+  (def all-ns (scan-namespaces all-projs {:platform ns-find/clj #_ns-find/cljs}))
 
   (map #(meta %) (ns-find/find-ns-decls [(io/file "/home/jmonetta/my-projects/district0x/memefactory/src")]))
 

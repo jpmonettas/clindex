@@ -6,14 +6,15 @@
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
         org.clojure/tools.analyzer.jvm {:mvn/version "0.7.2"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}
-
+        hawk                           {:mvn/version "0.2.11"}
         ;; org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}
-        jpmonettas/tools.namespace {:mvn/version "0.3.2"}
+        jpmonettas/tools.namespace     {:mvn/version "0.3.2"}
         }
  :aliases
  {:dev {:extra-paths ["dev-src"]}
   :test {:extra-paths ["test"]
-         :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}}}
+         :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}
+                      expound                {:mvn/version "0.7.2"}}}
   :runner
   {:extra-deps {com.cognitect/test-runner
                 {:git/url "https://github.com/cognitect-labs/test-runner"

@@ -4,18 +4,25 @@
             [clindex.scanner-test :as scanner-test]
             [clojure.java.io :as io]
             [clojure.test :refer [is deftest testing use-fixtures]]
-            [clojure.tools.namespace.find :as ctnf]
-            [clojure.spec.test.alpha :as stest]))
+            [clojure.tools.namespace.find :as ns-find]
+            [clojure.spec.test.alpha :as stest]
+            [expound.alpha :as expound]
+            [clojure.spec.alpha :as s]))
 
 (def all-projects nil)
 (def all-namespaces nil)
 
 (defn with-scanned-projs-and-namespaces [f]
-  (stest/instrument)
-  (alter-var-root (var all-projects) (constantly (scanner/scan-all-projects (str (io/file "./test-resources/test-project")) {:platform ctnf/clj})))
-  (alter-var-root (var all-namespaces) (constantly (scanner/scan-all-namespaces all-projects {:platform ctnf/clj})))
-  (f)
-  (stest/unstrument))
+  (try
+    (set! s/*explain-out* expound/printer)
+    (stest/instrument)
+    (alter-var-root (var all-projects) (constantly (scanner/scan-all-projects (str (io/file "./test-resources/test-project")) {:platform ns-find/clj})))
+    (alter-var-root (var all-namespaces) (constantly (scanner/scan-namespaces all-projects {:platform ns-find/clj})))
+    (f)
+    (stest/unstrument)
+    (catch Exception e
+      (println (.getMessage e))
+      (println "KEYS " (keys (ex-data e))))))
 
 (use-fixtures :once with-scanned-projs-and-namespaces)
 
@@ -79,8 +86,8 @@
 
 
 (comment
-  (def all-projs (scanner/scan-all-projects (str (io/file "./test-resources/test-project")) {:platform ctnf/clj}))
-  (def all-namespaces  (scanner/scan-all-namespaces all-projs {:platform ctnf/clj}))
+  (def all-projs (scanner/scan-all-projects (str (io/file "./test-resources/test-project")) {:platform ns-find/clj}))
+  (def all-namespaces  (scanner/scan-namespaces all-projs {:platform ns-find/clj}))
 
   (#'indexer/namespace-full-facts all-namespaces 'test-code)
 

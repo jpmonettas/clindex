@@ -7,12 +7,18 @@
   (:import [java.io File]
            [java.util.jar JarFile]))
 
+(defn normalize-path [file]
+  (-> file
+      .toURI
+      .normalize
+      .getRawPath))
+
 (defn jar-full-path [jar-path file-path]
   (format "jar:file:%s!/%s" jar-path file-path))
 
 (defn make-file
   ([path]
-   {:full-path (.getAbsolutePath (io/file path))
+   {:full-path (normalize-path (io/file path))
     :content-url (io/as-url (File. path))})
   ([jar-path path]
    (let [full-path (jar-full-path jar-path path)]

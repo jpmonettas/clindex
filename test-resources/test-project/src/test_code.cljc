@@ -1,5 +1,6 @@
 (ns test-code
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [dep-code :as dep]))
 
 #?(:clj
    (defmacro some-macro [a b]
@@ -18,4 +19,4 @@
 
 (defmethod the-multi-method java.lang.String
   [s]
-  s)
+  (dep/concatenate "Hello " s))

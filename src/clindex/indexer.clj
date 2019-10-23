@@ -4,9 +4,11 @@
             [clojure.string :as str]
             [clindex.utils :as utils]
             [clindex.forms-facts :refer [form-facts]]
+            [clojure.tools.namespace.track :as ns-track]
             [clojure.walk :as walk]
             [clojure.spec.alpha :as s]
-            [clindex.specs]))
+            [clindex.specs]
+            [clindex.scanner :as scanner]))
 
 (defn- project-facts [{:keys [:project/name :project/dependencies :mvn/version] :as proj}]
   (let [proj-id (utils/project-id name)]
@@ -234,13 +236,6 @@
   (into (namespace-facts (get all-ns-map ns-symb))
         (namespace-forms-facts all-ns-map ns-symb)))
 
-;; (defn- source-facts [all-ns-map]
-;;   (let [all-ns-facts (mapcat namespace-facts (vals all-ns-map))
-;;         all-ns-form-facts (mapcat (fn [[ns-symb _]] (namespace-forms-facts all-ns-map ns-symb)) all-ns-map)]
-;;     (-> []
-;;         (into all-ns-facts)
-;;         (into all-ns-form-facts))))
-
 
 (s/fdef all-facts
     :args (s/cat :m (s/keys :req-un [:scanner/projects
@@ -259,23 +254,23 @@
 (comment
 
   (do (require '[clindex.scanner :as scanner])
-      (require '[clojure.tools.namespace.find :as ctnf])
+      (require '[clojure.tools.namespace.find :as ns-find])
 
       (def all-projs (scanner/all-projects "/home/jmonetta/my-projects/clindex"
-                                           {:platform ctnf/clj}))
+                                           {:platform ns-find/clj}))
 
       (def main-project {scanner/main-project-symb (get all-projs scanner/main-project-symb)})
       (def all-ns (scanner/all-namespaces
                    all-projs #_main-project
-                   {:platform ctnf/clj #_ctnf/cljs})))
+                   {:platform ns-find/clj #_ns-find/cljs})))
 
   (do (require '[clindex.scanner :as scanner])
-      (require '[clojure.tools.namespace.find :as ctnf])
+      (require '[clojure.tools.namespace.find :as ns-find])
 
       (def all-projs (scanner/all-projects "/home/jmonetta/my-projects/district0x/memefactory"
-                                           {:platform ctnf/cljs}))
+                                           {:platform ns-find/cljs}))
 
-      (def all-ns (scanner/all-namespaces all-projs {:platform ctnf/cljs #_ctnf/cljs})))
+      (def all-ns (scanner/all-namespaces all-projs {:platform ns-find/cljs #_ns-find/cljs})))
 
   (def src-facts (source-facts all-ns))
 
