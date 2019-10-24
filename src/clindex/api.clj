@@ -11,7 +11,8 @@
             [clindex.utils :as utils]
             [hawk.core :as hawk]
             [clojure.tools.namespace.file :as ns-file]
-            [clojure.pprint :as pprint]))
+            [clojure.pprint :as pprint]
+            [clojure.spec.alpha :as s]))
 
 (def db-conns (atom {}))
 (def all-projects-by-platform (atom nil))
@@ -113,9 +114,21 @@
         (swap! trackers-by-platform assoc p tracker)
         (on-new-facts tx-data-diff)))))
 
+(s/def ::on-new-facts (s/fspec :args (s/cat :new-facts (s/coll-of :datomic/fact))))
+
+(s/fdef index-project!
+  :args (s/cat :base-dir :file/path
+               :opts (s/keys :req-un [:clindex/platforms]
+                             :opt-un [:datascript/extra-schema
+                                      ::on-new-facts])))
 (defn index-project!
-  ""
-  [base-dir {:keys [platforms extra-schema on-new-facts]}]
+  "Goes over all Clojure[Script] files (depending on platforms) inside `base-dir` and index facts about the project
+  and all its dependencies.
+  Possible `opts` are :
+    - :platforms (required), a set with the platforms to index, like #{:clj :cljs}
+    - :extra-schema, a datascript schema that is going to be merged with clindex.schema/schema
+    - :on-new-facts, a fn of one arg that will be called with new facts everytime a file inside `base-dir` changes"
+  [base-dir {:keys [platforms extra-schema on-new-facts] :as opts}]
   ;; index everything by platform
   (doseq [p platforms]
     (let [plat-opts (build-opts p)
@@ -139,9 +152,13 @@
     (println "Watching " base-dir)
     (hawk/watch!
      [{:paths [base-dir]
-       :handler (partial file-change-handler on-new-facts platforms)}])))
+       :handler (partial file-change-handler on-new-facts platforms)}]))
+  nil)
+
+(s/fdef db
+  :args (s/cat :platform :clindex/platform))
 
 (defn db
-  ""
+  "Returns the datascript db index for the `platform`"
   [platform]
   @(get @db-conns platform))

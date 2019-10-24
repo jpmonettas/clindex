@@ -46,8 +46,8 @@
   (let [transit-proj (get all-projects 'com.cognitect/transit-java)
         transit-facts (#'indexer/project-facts transit-proj)
         transit-facts-count (count-facts-by-attr transit-facts)]
-    (is (= (:project/depends transit-facts-count) 3)
-        "Should index 3 dependencies")
+    (is (= (:project/depends transit-facts-count) 2)
+        "Should index 2 dependencies")
     (is (fact-exist? '[_ _ :project/name com.cognitect/transit-java] transit-facts)
         "Should index name")
     (is (fact-exist? '[_ _ :project/version "0.8.332"] transit-facts)

@@ -3,7 +3,7 @@
             [clojure.tools.namespace.find :as ns-find]))
 
 (s/def :file/path string?)
-(s/def :datomic/fact vector?)
+(s/def :datomic/fact any?)
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ;; Scanner projects ;;
@@ -55,3 +55,8 @@
 (s/def :scanner/namespaces (s/map-of :namespace/name :scanner/namespace))
 
 (s/def :scanner/platform #{ns-find/clj ns-find/cljs})
+
+
+(s/def :clindex/platform #{:clj :cljs})
+(s/def :clindex/platforms (s/coll-of :clindex/platform))
+(s/def :datascript/extra-schema map?)

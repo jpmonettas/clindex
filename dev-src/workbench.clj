@@ -7,59 +7,10 @@
             [clojure.java.io :as io]
             [datascript.core :as d]
             [clindex.api :as capi]
-            [clojure.pprint :as pprint]))
-
-#_(defn search-var-starts-with
-  "Searches the index for a var, and prints a table containing
-  :name, :ns, :project :file and :line."
-  [search-term]
-  (let [q-result (d/q '[:find ?vn ?nsn ?pname ?vl ?fname
-                        :in $ ?st
-                        :where
-                        [(get-else $ ?fid :file/name "N/A") ?fname] ;; while we fix the file issue
-                        [?pid :project/name ?pname]
-                        [?nid :namespace/file ?fid]
-                        [?nid :namespace/project ?pid]
-                        [?nid :namespace/name ?nsn]
-                        [?vid :var/namespace ?nid]
-                        [?vid :var/name ?vn]
-                        [?vid :var/line ?vl]
-                        [(str/starts-with? ?vn ?st)]]
-                      @indexer/db-conn
-                      search-term)]
-
-    (->> q-result
-     (map #(zipmap [:name :ns :project :line :file] %))
-     (pprint/print-table))))
-
-#_(defn x-refs
-  "Searches and prints a table with all the namespaces,lines,columns that references this ns/vname"
-  [ns vname]
-  (let [q-result (d/q '[:find ?pname ?vrnsn ?vn ?in-fn ?vrline ?vrcolumn ?fname
-                        :in $ ?nsn ?vn
-                        :where
-                        [?nid :namespace/name ?nsn]
-                        [?vid :var/namespace ?nid]
-                        [?vid :var/name ?vn]
-                        [?vrid :var-ref/var ?vid]
-                        [?vrid :var-ref/namespace ?vrnid]
-                        [?vrid :var-ref/line ?vrline]
-                        [?vrid :var-ref/column ?vrcolumn]
-                        [?vrid :var-ref/in-function ?fnid]
-                        [?fnid :function/var ?fnvid]
-                        [?fnvid :var/name ?in-fn]
-                        [?vrnid :namespace/name ?vrnsn]
-                        [?pid :project/name ?pname]
-                        [?vrnid :namespace/project ?pid]
-                        [?vrnid :namespace/file ?fid]
-                        [(get-else $ ?fid :file/name "N/A") ?fname]] ;; while we fix the file issue
-                      @indexer/db-conn
-                      ns
-                      vname)]
-    (->> q-result
-         (map #(zipmap [:project :ns :var-name :in-fn :line :column :file] %))
-         (pprint/print-table))))
-
+            [clindex.scanner :as scanner]
+            [clojure.pprint :as pprint]
+            [clindex.forms-facts :as forms-facts]
+            [clindex.utils :as utils]))
 
 (comment
 
@@ -94,82 +45,43 @@
        (map #(zipmap [:name :ns :project :line :file] %))
        (pprint/print-table))
 
+  ;; who uses clojure.core/juxt ?
+  (let [juxt-vid (d/q '[:find ?vid .
+                    :in $ ?nsn ?vn
+                    :where
+                    [?nsid :namespace/name ?nsn]
+                    [?nsid :namespace/vars ?vid]
+                    [?vid :var/name ?vn]]
+                  db
+                  'clojure.core
+                  'juxt)]
+    (-> (d/pull db [{:var/refs [{:var-ref/namespace [:namespace/name]} :var-ref/line]}] juxt-vid)
+        :var/refs
+        (clojure.pprint/print-table)))
 
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  (def tx-result (time (capi/index-project! "/home/jmonetta/my-projects/clindex"
-                                            {:platforms #{:clj}})))
+  (clindex/index-project! "./test-resources/test-project/"
+                          {:platforms #{:clj}
+                           :extra-schema {:compojure.route/method {:db/cardinality :db.cardinality/one}
+                                          :compojure.route/url    {:db/cardinality :db.cardinality/one}}})
 
+  (defmethod forms-facts/form-facts 'compojure.core/GET
+    [all-ns-map {:keys [:namespace/name] :as ctx} [_ url :as form]]
 
-  (search-var-starts-with "eval")
-  (x-refs 'clindex.indexer 'namespace-facts)
+    (let [route-id (utils/stable-id :route :get url)]
+      {:facts [[:db/add route-id :compojure.route/method :get]
+               [:db/add route-id :compojure.route/url url]]
+      :ctx ctx}))
 
-  (def tx-result (time (capi/index-project! "/home/jmonetta/my-projects/district0x/memefactory"
-                                            {:platforms #{:cljs}})))
-  (search-var-starts-with "start")
-  (x-refs 'cljs-web3.eth 'block-number)
+  (def db (clindex/db :clj))
 
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  (def db-conn (d/create-conn {}))
-
-  (def proj (core/project "/home/jmonetta/my-projects/clindex"))
-  (def proj (core/project "/home/jmonetta/my-projects/district0x/memefactory"))
-
-  (def all-projs (core/all-projects proj))
-
-  (dep/topo-sort
-   (reduce
-    (fn [dep-graph {:keys [:project/name :project/dependencies]}]
-      (reduce (fn [dg pd]
-                (dep/depend dg name pd))
-              dep-graph
-              dependencies))
-           (dep/graph)
-           (vals all-projs)))
-
-
-  (def files
-    [(io/file "/home/jmonetta/.m2/repository/org/clojure/core.specs.alpha/0.2.44/core.specs.alpha-0.2.44.jar")
-     (io/file "/home/jmonetta/my-projects/clindex/src/clindex/")])
-
-  (map #(meta %) (ns-find/find-ns-decls files))
-
-  (->> (ns-find/find-ns-decls files)
-       (reduce
-        (fn [r ns-decl]
-          (assoc r (ns-parse/name-from-ns-decl ns-decl) (ns-parse/deps-from-ns-decl ns-decl) ))
-        {}))
-
-    ;; all namespaces for 'org.clojure/spec.alpha project
-  (d/q '[:find ?nsn
-         :in $ ?pn
+  (d/q '[:find ?rmeth ?rurl
+         :in $
          :where
-         [?pid :project/name ?pn]
-         [?nsid :namespace/project ?pid]
-         [?nsid :namespace/name ?nsn]]
-       @(capi/index-db)
-       'org.clojure/spec.alpha)
+         [?rid :compojure.route/method ?rmeth]
+         [?rid :compojure.route/url ?rurl]]
+       db)
 
-  ;; all namespaces for all projects
-  (d/q '[:find ?pid ?pn ?nsid ?nsn
-         :where
-         [?pid :project/name ?pn]
-         [?nsid :namespace/project ?pid]
-         [?nsid :namespace/name ?nsn]]
-       @(capi/index-db))
-
-  ;; all vars for clojure.spec.alpha namespace
-  (d/q '[:find ?vn ?vl ?fname
-         :in $ ?nsn
-         :where
-         [?fid :file/name ?fname]
-         [?nid :namespace/file ?fid]
-         [?nid :namespace/name ?nsn]
-         [?vid :var/namespace ?nid]
-         [?vid :var/name ?vn]
-         [?vid :var/line ?vl]]
-       @(capi/index-db)
-       'clojure.spec.alpha)
 
   )
