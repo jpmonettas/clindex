@@ -3,8 +3,9 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.2.1 (2019-10-29)
+
+### Fixes
+
 - Fix a bunch of watchers minors bugs
 - Fix defmulti facts when defmulti contains documentation
-
-### Changed
-- ...
