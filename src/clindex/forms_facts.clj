@@ -52,12 +52,14 @@
                                        [:db/add (utils/var-id ns-name f-name) :var/function fid]]))))))
      :ctx (merge ctx {:in-protocol pname})}))
 
-(defmethod form-facts 'clojure.core/defmulti [all-ns-map ctx [_ var-name dispatch-form]]
+(defmethod form-facts 'clojure.core/defmulti [all-ns-map ctx [_ var-name arg1 arg2 #_dispatch-form]]
   (let [ns-name (:namespace/name ctx)
         multi-id (utils/multi-id ns-name var-name)]
-    {:facts [[:db/add (utils/var-id ns-name var-name) :var/multi multi-id]
-             [:db/add multi-id :multi/dispatch-form dispatch-form]]
-    :ctx ctx}))
+    {:facts (into [[:db/add (utils/var-id ns-name var-name) :var/multi multi-id]]
+                  (if (string? arg1)
+                    [[:db/add multi-id :multi/dispatch-form arg2]] ;; add documentation here also
+                    [[:db/add multi-id :multi/dispatch-form arg1]]))
+     :ctx ctx}))
 
 (defmethod form-facts 'clojure.core/defmethod [all-ns-map ctx [_ var-name dispatch-val :as form]]
   (let [ns-name (:namespace/name ctx)
