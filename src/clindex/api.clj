@@ -54,11 +54,13 @@
 
 (defn- process-unloads [{:keys [tracker] :as m}]
   (reduce (fn [r ns-symb]
-            (let [ns-id (utils/namespace-id ns-symb)]
-              (-> r
-                  (update-in [:tracker ::ns-track/unload] rest)
-                  (update :namespaces dissoc ns-symb)
-                  (update :tx-data conj [:db.fn/retractEntity ns-id]))))
+            (let [ns-id (utils/namespace-id ns-symb)
+                  reload? (some #(= % ns-symb) (::ns-track/load tracker))]
+              (cond-> r
+                true          (update-in [:tracker ::ns-track/unload] rest)
+                ;; don't remove it if we are going to re load it, since we need the info there
+                (not reload?) (update :namespaces dissoc ns-symb)
+                true          (update :tx-data conj [:db.fn/retractEntity ns-id]))))
           m
           (::ns-track/unload tracker)))
 
@@ -106,7 +108,9 @@
                                       deps (ns-parse/deps-from-ns-decl ns-decl)]
                                   (ns-track/add platform-tracker {ns-symb deps})))
             _ (println (format "File %s changed, retracting namespaces (%s), indexing namspeces (%s)"
-                               (.getName file) (apply str (::ns-track/unload platform-tracker')) (apply str (::ns-track/load platform-tracker'))))
+                               file-path
+                               (pr-str (::ns-track/unload platform-tracker'))
+                               (pr-str (::ns-track/load platform-tracker'))))
             {:keys [tx-data namespaces tracker]} (reindex-namespaces all-platform-projs all-platform-ns platform-tracker' plat-opts)
             tx-data-diff (:tx-data (d/transact! (get @db-conns p) tx-data))]
 
@@ -127,32 +131,34 @@
   Possible `opts` are :
     - :platforms (required), a set with the platforms to index, like #{:clj :cljs}
     - :extra-schema, a datascript schema that is going to be merged with clindex.schema/schema
-    - :on-new-facts, a fn of one arg that will be called with new facts everytime a file inside `base-dir` changes"
+    - :on-new-facts, a fn of one arg that will be called with new facts everytime a file inside `base-dir` project sources changes"
   [base-dir {:keys [platforms extra-schema on-new-facts] :as opts}]
   ;; index everything by platform
-  (doseq [p platforms]
-    (let [plat-opts (build-opts p)
-          all-projs (scanner/scan-all-projects base-dir plat-opts)
-          all-ns (scanner/scan-namespaces all-projs plat-opts)
-          tracker (-> (ns-track/tracker)
-                      (ns-track/add (build-dep-map all-ns))
-                      (dissoc ::ns-track/unload ::ns-track/load)) ;; we can discard this first time since we are indexing everything
-          tx-data (indexer/all-facts {:projects all-projs
-                                      :namespaces all-ns})]
-      (swap! db-conns assoc p (d/create-conn (merge schema extra-schema)))
-      (swap! all-projects-by-platform assoc p all-projs)
-      (swap! all-ns-by-platform assoc p all-ns)
-      (swap! trackers-by-platform assoc p tracker)
-      (utils/check-facts tx-data)
-      (println (format "About to transact %d facts" (count tx-data) "for platform" p))
-      (d/transact! (get @db-conns p) tx-data)))
+  (let [source-paths (->> (:paths (scanner/find-project-in-dir base-dir))
+                          (map (fn [p] (str (utils/normalize-path (io/file base-dir)) p))))]
+    (doseq [p platforms]
+      (let [plat-opts (build-opts p)
+            all-projs (scanner/scan-all-projects base-dir plat-opts)
+            all-ns (scanner/scan-namespaces all-projs plat-opts)
+            tracker (-> (ns-track/tracker)
+                        (ns-track/add (build-dep-map all-ns))
+                        (dissoc ::ns-track/unload ::ns-track/load)) ;; we can discard this first time since we are indexing everything
+            tx-data (indexer/all-facts {:projects all-projs
+                                        :namespaces all-ns})]
+        (swap! db-conns assoc p (d/create-conn (merge schema extra-schema)))
+        (swap! all-projects-by-platform assoc p all-projs)
+        (swap! all-ns-by-platform assoc p all-ns)
+        (swap! trackers-by-platform assoc p tracker)
+        (utils/check-facts tx-data)
+        (println (format "About to transact %d facts" (count tx-data) "for platform" p))
+        (d/transact! (get @db-conns p) tx-data)))
 
-  ;; install watcher for reindexing when on-new-facts callback provided
-  (when on-new-facts
-    (println "Watching " base-dir)
-    (hawk/watch!
-     [{:paths [base-dir]
-       :handler (partial file-change-handler on-new-facts platforms)}]))
+    ;; install watcher for reindexing when on-new-facts callback provided
+    (when on-new-facts
+      (println "Watching " source-paths)
+      (hawk/watch!
+       [{:paths source-paths
+         :handler (partial file-change-handler on-new-facts platforms)}])))
   nil)
 
 (s/fdef db

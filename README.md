@@ -61,7 +61,7 @@ Clindex is available as a Maven artifact from Clojars. The latest released versi
 
 - :platforms, a set containing :clj and/or :cljs
 - :extra-schema, a schema that will be merged with dbs schemas
-- :on-new-facts, a fn of one arg that will be called with new facts everytime a file inside base-dir changes
+- :on-new-facts, a fn of one arg that will be called with new facts everytime a file inside base-dir project sources changes
 
 ## DB schema
 

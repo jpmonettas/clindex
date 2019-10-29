@@ -40,7 +40,15 @@
              #{}
              projects-map))
 
-(defn- find-project-in-dir [base-dir]
+(s/fdef find-project-in-dir
+  :args (s/cat :base-dir :file/path)
+  :ret (s/keys :req [:project/name
+                     :project/dependencies]
+               :req-un [:project/paths]))
+
+(defn find-project-in-dir
+  "Given a `base-dir` path returns a project map with :project/name :project/dependencies and :paths (source paths)"
+  [base-dir]
   (let [tool-deps (some->> (utils/all-files base-dir #(str/ends-with? (str %) "deps.edn"))
                            (sort-by (comp count :full-path)) ;; if there are more than one, that the shorter
                            first

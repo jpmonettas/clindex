@@ -3,6 +3,7 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Fix a bunch of watchers minors bugs
 - Fix defmulti facts when defmulti contains documentation
 
 ### Changed
