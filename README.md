@@ -161,3 +161,5 @@ who calls clojure.core/juxt ?
 ```
 
 ## Projects known to be using clindex
+
+- [Clograms](https://github.com/jpmonettas/clograms) Explore clojure projects by building diagrams
