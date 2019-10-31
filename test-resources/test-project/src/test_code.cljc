@@ -1,4 +1,5 @@
 (ns test-code
+  "A not so well documented namespace"
   (:require [clojure.string :as str]
             [dep-code :as dep]))
 

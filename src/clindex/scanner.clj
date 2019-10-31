@@ -265,6 +265,11 @@
      ;; TODO implement this
      {})))
 
+(defn- doc-from-ns-decl [ns-decl]
+  (let [[_ _ possible-doc] ns-decl]
+    (when (string? possible-doc)
+      possible-doc)))
+
 (defn- scan-namespace-decl [ns-decl all-projs platform]
   (let [file->proj (build-file->project-map all-projs)
         readers (data-readers all-projs)]
@@ -280,10 +285,12 @@
           ns-form-lists (map :form-list ns-forms)
           pub-vars (public-vars ns-form-lists)
           priv-vars (private-vars ns-form-lists)
-          ns-name (ns-parse/name-from-ns-decl ns-decl)]
+          ns-name (ns-parse/name-from-ns-decl ns-decl)
+          ns-doc (doc-from-ns-decl ns-decl)]
       ;; TODO probably around here we need to deal with the feature of cljs that lets you
       ;; require clojure.set but that is kind of a alias to cljs.set
       [ns-name {:namespace/name ns-name
+                :namespace/docstring ns-doc
                 :namespace/alias-map alias-map
                 :namespace/dependencies (let [deps (ns-parse/deps-from-ns-decl ns-decl)]
                                           (if-not (#{'clojure.core 'cljs.core} ns-name)

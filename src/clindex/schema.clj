@@ -39,6 +39,9 @@
    ;; A collection of references to vars this namespace defines
    :namespace/vars         {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many :db/isComponent true}
 
+   ;; Namespace documentation string
+   :namespace/docstring    {:db/cardinality :db.cardinality/one}
+
    ;;;;;;;;;;
    ;; Vars ;;
    ;;;;;;;;;;
@@ -64,6 +67,9 @@
    ;; A reference to the multimethod this var points to
    :var/multi              {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one :db/isComponent true}
 
+   ;; Var documentation
+   :var/docstring          {:db/cardinality :db.cardinality/one}
+
    ;;;;;;;;;;;;;;;
    ;; Functions ;;
    ;;;;;;;;;;;;;;;
@@ -80,6 +86,9 @@
 
    ;; When this is a protocol function, it points to the protocol definition var
    :function/proto-var     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+
+   ;; A collection of argument vectors as strings, it is a collection because fns can have multiple arities
+   :function/args          {:db/cardinality :db.cardinality/many}
 
    ;;;;;;;;;;;;;;;;;;
    ;; Multimethods ;;

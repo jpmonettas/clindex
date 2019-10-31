@@ -29,6 +29,7 @@
              (quote #:namespace{:project clindex/main-project,
                                 :macros #{some-macro},
                                 :name test-code,
+                                :docstring "A not so well documented namespace"
                                 :public-vars
                                 #{the-multi-method some-function TheProtocol
                                   do-something},
@@ -37,9 +38,9 @@
                                 :alias-map {str clojure.string, dep dep-code},
                                 :forms
                                 ({:form-list
-                                  (ns test-code (:require [clojure.string :as str] [dep-code :as dep])),
+                                  (ns test-code "A not so well documented namespace" (:require [clojure.string :as str] [dep-code :as dep])),
                                   :form-str
-                                  "ns test-code\n (:require [clojure.string :as str]\n           [dep-code :as dep]))"}
+                                  "ns test-code\n \"A not so well documented namespace\"\n (:require [clojure.string :as str]\n           [dep-code :as dep]))"}
                                  {:form-list
                                   (defmacro
                                     some-macro

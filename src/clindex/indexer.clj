@@ -25,6 +25,7 @@
 
 (defn- namespace-facts [ns]
   (let [ns-id (utils/namespace-id (:namespace/name ns))
+        ns-doc (:namespace/docstring ns)
         vars-facts (fn [vs pub?]
                      (mapcat (fn [v]
                                (let [vid (utils/var-id (:namespace/name ns) v)
@@ -37,12 +38,13 @@
                                           [:db/add ns-id :namespace/vars vid]]
                                    vline (into [[:db/add vid :var/line vline]]))))
                              vs))
-        facts (-> [[:db/add ns-id :namespace/name (:namespace/name ns)]
-                   [:db/add (utils/project-id (:namespace/project ns)) :project/namespaces ns-id]
-                   [:db/add ns-id :namespace/file (utils/file-id (:namespace/file-content-path ns))]]
-                  (into (vars-facts (:namespace/public-vars ns) true))
-                  (into (vars-facts (:namespace/private-vars ns) false))
-                  (into (vars-facts (:namespace/macros ns) true)))]
+        facts (cond-> (-> [[:db/add ns-id :namespace/name (:namespace/name ns)]
+                           [:db/add (utils/project-id (:namespace/project ns)) :project/namespaces ns-id]
+                           [:db/add ns-id :namespace/file (utils/file-id (:namespace/file-content-path ns))]]
+                          (into (vars-facts (:namespace/public-vars ns) true))
+                          (into (vars-facts (:namespace/private-vars ns) false))
+                          (into (vars-facts (:namespace/macros ns) true)))
+                ns-doc (into [[:db/add ns-id :namespace/docstring ns-doc]]))]
     facts))
 
 (defn- expand-symbol-alias [aliases-map current-ns-symb symb]

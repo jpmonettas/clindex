@@ -30,6 +30,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (s/def :namespace/name symbol?)
+(s/def :namespace/docstring (s/nilable string?))
 (s/def :namespace/project :project/name)
 (s/def :var/name symbol?)
 (s/def :namespace/public-vars (s/coll-of :var/name))

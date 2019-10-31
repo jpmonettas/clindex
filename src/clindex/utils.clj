@@ -79,9 +79,12 @@
       (recur (zip/next z)))))
 
 (defn check-facts [tx-data]
-  (doseq [[_ _ _ v :as f] tx-data]
-    (when (nil? v)
-      (println "Error, nil valued fact " f))))
+  (doseq [[op e a v :as f] tx-data]
+    (when-not (and (#{:db/add :db/retract} op)
+                   (int? e)
+                   (keyword? a)
+                   (not (nil? v)))
+      (println "Fact check failed " f))))
 
 (defn stable-id [& args]
   (Math/abs (apply hash [args])))
