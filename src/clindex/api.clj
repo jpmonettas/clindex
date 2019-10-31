@@ -141,7 +141,7 @@
             all-projs (scanner/scan-all-projects base-dir plat-opts)
             all-ns (scanner/scan-namespaces all-projs plat-opts)
             tracker (-> (ns-track/tracker)
-                        (ns-track/add (build-dep-map all-ns))
+                        (ns-track/add (build-dep-map (utils/reloadable-namespaces all-ns)))
                         (dissoc ::ns-track/unload ::ns-track/load)) ;; we can discard this first time since we are indexing everything
             tx-data (indexer/all-facts {:projects all-projs
                                         :namespaces all-ns})]

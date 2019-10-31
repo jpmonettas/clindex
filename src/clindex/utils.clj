@@ -135,3 +135,14 @@
                      (throw e))))
                ))
         (str/join "\n"))))
+
+(defn reloadable-namespaces
+  "Returns the subsets of namespaces that can be reloaded. Basically whatever is not
+  inside a jar file"
+  [all-ns]
+  (reduce-kv (fn [r ns-symb {:keys [:namespace/file-content-path] :as ns}]
+               (if-not (str/starts-with? file-content-path "jar:file:")
+                 (assoc r ns-symb ns)
+                 r))
+   {}
+   all-ns))

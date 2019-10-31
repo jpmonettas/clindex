@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Don't add to the tracker namespaces inside jars (tracking cljs compiler doesn't work because of dep cycle)
+
 ## 0.2.2 (2019-10-31)
 
 - Index :namespace/docstring, :var/docstring and :function/args

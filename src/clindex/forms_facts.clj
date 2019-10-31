@@ -17,7 +17,10 @@
                              )]
              (case arity
                :arity-1 (list (first args+body))
-               :arity-n (map first args+body)))}))
+               :arity-n (map first args+body)
+               (do
+                 (println "[Warning] unknown arity for " form)
+                 [[]])))}))
 
 (defmulti form-facts (fn [all-ns-map ctx form] (first form)))
 
@@ -96,7 +99,7 @@
   (defmulti-facts all-ns-map ctx form))
 
 (defmethod form-facts 'cljs.core/defmulti [all-ns-map ctx form]
-  (defmulti-facts all-ns-map (:namespace/name ctx) form))
+  (defmulti-facts all-ns-map ctx form))
 
 (defmethod form-facts 'clojure.core/defmethod [all-ns-map ctx [_ var-name dispatch-val :as form]]
   (let [ns-name (:namespace/name ctx)
