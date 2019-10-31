@@ -1,11 +1,22 @@
 # clindex
 
-A general Clojure[Script] source file indexer. Scans a Clojure[Script] project with all its dependencies and generates datascript dbs with facts about them.
+**Clindex** is a general and extensible Clojure[Script] source code indexer. It scans a Clojure[Script] project together with all its dependencies and generates a [datascript](https://github.com/tonsky/datascript) database with facts about them.
+
+It is intended to be used as a platform for building dev tools so they don't have to deal with the complexities of understanding Clojure code by reading the filesystem.
+Instead, as an api for talking about your code it gives you a datascript db full of facts you can use together with `d/q`, `d/pull`, `d/entity`, etc.
+
+## Features
+
+- Index **your project and all its dependency** tree (only lein and deps.edn supported so far)
+- **Big set of facts** out of the box, see [schema](/src/clindex/schema.clj)
+- **Extesible**, you can make any form generate any facts by adding a method for the `clindex.forms-facts/form-facts` multimethod
+- **Hot reload**, watches your sources and reindexes whenever something on its source path changes, taking care of retraction and notification
 
 ## Installation
 
-Clindex is available as a Maven artifact from Clojars. The latest released version is:
-[![Clojars Project](https://img.shields.io/clojars/v/clindex.svg)](https://clojars.org/clindex)<br>
+**Clindex** is available as a Maven artifact from Clojars.
+
+The latest released version is: [![Clojars Project](https://img.shields.io/clojars/v/clindex.svg)](https://clojars.org/clindex)<br>
 
 ## Usage
 
@@ -16,30 +27,29 @@ Clindex is available as a Maven artifact from Clojars. The latest released versi
 (require '[clojure.pprint :as pprint])
 
 ;; first you index a project folder for some platforms
-(clindex/index-project! "./"
-                        {:platforms #{:clj}})
+(clindex/index-project! "./" {:platforms #{:clj}})
 
-;; retrieve the datascript dbs
+;; then retrieve the datascript db for the platform you want to explore
 (def db (clindex/db :clj))
 
-;; now you can query the dbs
+;; now you can explore your code using datalog, pull or whatever you can run against datascript
 ;; lets query all the vars that start with "eval"
 (->> (d/q '[:find ?vname ?nname ?pname ?vline ?fname
-                  :in $ ?text
-                  :where
-                  [?fid :file/name ?fname]
-                  [?pid :project/name ?pname]
-                  [?nid :namespace/file ?fid]
-                  [?pid :project/namespaces ?nid]
-                  [?nid :namespace/name ?nname]
-                  [?nid :namespace/vars ?vid]
-                  [?vid :var/name ?vname]
-                  [?vid :var/line ?vline]
-                  [(str/starts-with? ?vname ?text)]]
-                db
-                "eval")
-       (map #(zipmap [:name :ns :project :line :file] %))
-       (pprint/print-table))
+            :in $ ?text
+            :where
+            [?fid :file/name ?fname]
+            [?pid :project/name ?pname]
+            [?nid :namespace/file ?fid]
+            [?pid :project/namespaces ?nid]
+            [?nid :namespace/name ?nname]
+            [?nid :namespace/vars ?vid]
+            [?vid :var/name ?vname]
+            [?vid :var/line ?vline]
+            [(str/starts-with? ?vname ?text)]]
+          db
+          "eval")
+     (map #(zipmap [:name :ns :project :line :file] %))
+     (pprint/print-table))
 
 ;; =>
 
@@ -57,11 +67,11 @@ Clindex is available as a Maven artifact from Clojars. The latest released versi
 
 ```
 
-`index-project!` options can be :
+`index-project!` options should be a map with the following keys :
 
-- :platforms, a set containing :clj and/or :cljs
-- :extra-schema, a schema that will be merged with dbs schemas
-- :on-new-facts, a fn of one arg that will be called with new facts everytime a file inside base-dir project sources changes
+- `:platforms` a set containing :clj and/or :cljs
+- `:extra-schema` a schema that will be merged with dbs schemas
+- `:on-new-facts` a fn of one arg that will be called with new facts everytime a file inside base-dir project sources changes
 
 ## DB schema
 
@@ -70,15 +80,18 @@ You can find the schema [here](/src/clindex/schema.clj).
 
 ## Extending clindex
 
-You can extend clindex to any form that appears in your source code by adding implementations of the `clindex.forms-facts/form-facts` multimethod.
-The dispatch value for `clindex.forms-facts/form-facts` is the fully qualified form first symbol. The method will recieve as parameters :
-- all-namespaces-map (spec :scanner/namespaces)
-- a context (a map that at least will contain :namespace/name)
-- the form
+You can extend clindex to make any form generate any facts by adding implementations of the `clindex.forms-facts/form-facts` multimethod.
 
-and should return a map with :
-- :ctx (the new context)
-- :facts (a collection of datascript facts)
+The dispatch value for `clindex.forms-facts/form-facts` is the fully qualified form first symbol. The method will receive as parameters :
+
+- `all-namespaces-map` (spec `:scanner/namespaces`)
+- `ctx` a context map that at least will contain `:namespace/name` and things like  `:in-function` if the form is inside a fn definition
+- `form` the form with the first symbol fully qualified when it is a function, it also contains all metadata added by tools.reader + some more stuff
+
+It should return a map with the following keys :
+
+- `:ctx`, the new context
+- `:facts`, a collection of datascript tx-data like `[:db/add eid attr val]`
 
 ### Example: indexing compojure routes
 ```clojure
@@ -162,4 +175,4 @@ who calls clojure.core/juxt ?
 
 ## Projects known to be using clindex
 
-- [Clograms](https://github.com/jpmonettas/clograms) Explore clojure projects by building diagrams
+- [Clograms](https://github.com/jpmonettas/clograms) Explore clojure codebases by building diagrams
