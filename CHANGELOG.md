@@ -3,6 +3,7 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Fix scanner read-namespace-forms for non list forms
 - Honor :mvn/repos on project
 
 ## 0.2.3 (2019-10-31)

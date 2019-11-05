@@ -172,9 +172,13 @@
         (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" file-str "]"))
                               (reader/read read-opts)
                               (keep (fn [form]
-                                      (when (and form (not= (first form) 'comment))
+                                      (when (and (list? form) (not= (first form) 'comment))
                                         (let [{:keys [line column end-line end-column]} (meta form)
-                                              form-str (utils/rectangle-select file-str line end-line column)]
+                                              form-str (if (and line column end-line)
+                                                         (utils/rectangle-select file-str line end-line column)
+                                                         (do
+                                                           (println "[Warning] no meta line info found for " form)
+                                                           ""))]
                                           {:form-list form
                                            :form-str form-str})))))]
           forms))
