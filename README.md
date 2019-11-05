@@ -9,7 +9,7 @@ Instead, as an api for talking about your code it gives you a datascript db full
 
 - Index **your project and all its dependency** tree (only lein and deps.edn supported so far)
 - **Big set of facts** out of the box, see [schema](/src/clindex/schema.clj)
-- **Extesible**, you can make any form generate any facts by adding a method for the `clindex.forms-facts/form-facts` multimethod
+- **Extensible**, you can make any form generate any facts by adding a method for the `clindex.forms-facts/form-facts` multimethod
 - **Hot reload**, watches your sources and reindexes whenever something on its source path changes, taking care of retraction and notification
 
 ## Installation
