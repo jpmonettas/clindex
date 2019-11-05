@@ -2,7 +2,7 @@
  :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
         datascript                     {:mvn/version "0.17.1"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
-        org.clojure/tools.deps.alpha   {:mvn/version "0.6.480"}
+        org.clojure/tools.deps.alpha   {:mvn/version "0.8.584"}
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
         org.clojure/tools.analyzer.jvm {:mvn/version "0.7.2"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}

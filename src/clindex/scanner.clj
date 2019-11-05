@@ -15,11 +15,8 @@
             [cljs.core.specs.alpha :as cljs-spec]
             [cljs.tagged-literals :as tags]
             [clojure.spec.alpha :as s]
-            [clindex.specs]))
-
-
-(def mvn-repos {"central" {:url "https://repo1.maven.org/maven2/"}
-                "clojars" {:url "https://repo.clojars.org/"}})
+            [clindex.specs]
+            [clojure.tools.deps.alpha.util.maven :as tool-deps-maven]))
 
 (def ^:dynamic *def-public-set* #{'def 'defn 'declare 'defmulti 'deftype 'defprotocol 'defrecod})
 (def ^:dynamic *def-macro-set* #{'defmacro})
@@ -105,7 +102,7 @@
                                  :paths []}}"
   [base-dir opts]
   (let [proj (find-project-in-dir base-dir)
-        all-projs (tools-dep/resolve-deps (assoc proj :mvn/repos mvn-repos) nil)]
+        all-projs (tools-dep/resolve-deps (update proj :mvn/repos merge tool-deps-maven/standard-repos) nil)]
     (->> (assoc all-projs main-project-symb (-> proj
                                                 (assoc :main? true)
                                                 (update :paths (fn [paths] (map #(str base-dir "/" %) paths)))))
