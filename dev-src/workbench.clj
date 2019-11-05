@@ -85,3 +85,51 @@
 
 
   )
+
+
+(comment ;; codox and crossclj
+
+  ;; crossclj
+  ;; it basically collects data from tools.analyzer AST
+  (require '[crossclj.analyze-ns :as ana ])
+
+  (def clj-analysis-reslut
+    (ana/analyze-ns 'test-code
+                    (io/file "./test-resources/test-project/src/test_code.cljc")
+                    :reader (io/reader (io/file "./test-resources/test-project/src/test_code.cljc"))))
+
+  (def cljs-analysis-result
+    (ana/analyze-ns-cljs 'test-code
+                         (io/file "./test-resources/test-project/src/test_code.cljc")))
+
+  ;; codox
+  ;; returns a map of namespaces like clindex.scanner but with less info
+
+  (require '[codox.main :as codox])
+
+  (def codox-clj-analysis-result
+    (#'codox/read-namespaces (merge codox/defaults
+                                    {:root-path "./"
+                                     :source-paths ["src"]})))
+
+  ;; (first codox-clj-analysis-result) =>
+  ;;
+  ;; {:name clindex.api,
+  ;;  :publics
+  ;;  ({:name all-ns-by-platform,
+  ;;    :file "clindex/api.clj",
+  ;;    :line 19,
+  ;;    :type :var,
+  ;;    :path
+  ;;    #object[java.io.File 0x11bd9eaa "/home/jmonetta/my-projects/clindex/src/clindex/api.clj"],
+  ;;    :members ()}
+  ;;   {:name all-projects-by-platform,
+  ;;    :file "clindex/api.clj",
+  ;;    :line 18,
+  ;;    :type :var,
+  ;;    :path
+  ;;    #object[java.io.File 0x4246c2c7 "/home/jmonetta/my-projects/clindex/src/clindex/api.clj"],
+  ;;    :members ()}
+  ;;   ...)}
+
+  )

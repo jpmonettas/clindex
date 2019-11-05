@@ -7,6 +7,10 @@
         org.clojure/tools.analyzer.jvm {:mvn/version "0.7.2"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}
         hawk                           {:mvn/version "0.2.11"}
+        codox                          {:mvn/version "0.10.7"
+                                        :exclusions [org.clojure/tools.namespace]}
+        crossclj                       {:mvn/version "0.1.0-SNAPSHOT"
+                                        :exclusions [org.clojure/tools.namespace]}
         ;; org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}
         jpmonettas/tools.namespace     {:mvn/version "0.3.2"}
         }
