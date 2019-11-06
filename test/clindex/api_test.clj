@@ -30,14 +30,33 @@
                :namespace/name test-code,
                :namespace/vars
                [{:db/id 189378944,
+                 :var/column 4,
+                 :var/end-column 16,
                  :var/function
                  {:db/id 1493209856, :function/proto-var #:db{:id 453362419}},
                  :var/line 17,
                  :var/name do-something,
                  :var/namespace 1653199087,
                  :var/public? true}
-                {:db/id 422022587,
+                {:var/name the-multi-method,
+                 :var/end-column 27,
+                 :var/column 11,
                  :var/line 19,
+                 :var/refs
+                 [{:db/id 1699847084,
+                   :var-ref/column 11,
+                   :var-ref/end-column 27,
+                   :var-ref/in-function #:db{:id 1859721138},
+                   :var-ref/line 19,
+                   :var-ref/namespace #:db{:id 1653199087}}
+                  {:db/id 2036471479,
+                   :var-ref/column 12,
+                   :var-ref/end-column 28,
+                   :var-ref/in-function #:db{:id 1859721138},
+                   :var-ref/line 21,
+                   :var-ref/namespace #:db{:id 1653199087}}],
+                 :var/namespace 1653199087,
+                 :db/id 422022587,
                  :var/multi
                  {:db/id 610769301,
                   :multi/dispatch-form type,
@@ -46,59 +65,54 @@
                     :multimethod/dispatch-val java.lang.String,
                     :multimethod/source-form (clojure.core/defmethod the-multi-method java.lang.String [s] (dep/concatenate "Hello " s)),
                     :multimethod/source-str "(defmethod the-multi-method java.lang.String\n  [s]\n  (dep/concatenate \"Hello \" s))"}]},
-                 :var/name the-multi-method,
-                 :var/namespace 1653199087,
-                 :var/public? true,
-                 :var/refs
-                 [{:db/id 1699847084,
-                   :var-ref/column 11,
-                   :var-ref/in-function #:db{:id 1859721138},
-                   :var-ref/line 19,
-                   :var-ref/namespace #:db{:id 1653199087}}
-                  {:db/id 2036471479,
-                   :var-ref/column 12,
-                   :var-ref/in-function #:db{:id 1859721138},
-                   :var-ref/line 21,
-                   :var-ref/namespace #:db{:id 1653199087}}]}
+                 :var/public? true}
                 {:db/id 453362419,
+                 :var/column 14,
+                 :var/end-column 25,
                  :var/line 16,
                  :var/name TheProtocol,
                  :var/namespace 1653199087,
                  :var/protocol? true,
                  :var/public? true}
-                {:db/id 1169875698,
+                {:var/name some-macro,
+                 :var/end-column 24,
+                 :var/column 14,
+                 :var/line 7,
+                 :var/refs
+                 [{:db/id 1509927944,
+                   :var-ref/column 14,
+                   :var-ref/end-column 24,
+                   :var-ref/in-function #:db{:id 182575839},
+                   :var-ref/line 7,
+                   :var-ref/namespace #:db{:id 1653199087}}],
+                 :var/namespace 1653199087,
+                 :db/id 1169875698,
                  :var/function
                  {:db/id 182575839,
                   :function/args ["[a b]"],
                   :function/macro? true,
                   :function/source-form (clojure.core/defmacro some-macro [a b] (clojure.core/sequence (clojure.core/seq (clojure.core/concat (clojure.core/list 'clojure.core/+) (clojure.core/list 'user/a) (clojure.core/list 'user/b))))),
                   :function/source-str "(defmacro some-macro [a b]\n  `(+ a b)))"},
-                 :var/line 7,
-                 :var/name some-macro,
-                 :var/namespace 1653199087,
-                 :var/public? true,
+                 :var/public? true}
+                {:var/name some-function,
+                 :var/end-column 20,
+                 :var/column 7,
+                 :var/line 10,
                  :var/refs
-                 [{:db/id 1509927944,
-                   :var-ref/column 14,
-                   :var-ref/in-function #:db{:id 182575839},
-                   :var-ref/line 7,
-                   :var-ref/namespace #:db{:id 1653199087}}]}
-                {:db/id 1289073799,
+                 [{:db/id 1166623671,
+                   :var-ref/column 7,
+                   :var-ref/end-column 20,
+                   :var-ref/in-function #:db{:id 993887617},
+                   :var-ref/line 10,
+                   :var-ref/namespace #:db{:id 1653199087}}],
+                 :var/namespace 1653199087,
+                 :db/id 1289073799,
                  :var/function
                  {:db/id 993887617,
                   :function/args ["[arg1 arg2]"],
                   :function/source-form (clojure.core/defn some-function [arg1 arg2] (let [a 1 b (+ arg1 arg2)] (+ a b))),
                   :function/source-str "(defn some-function [arg1 arg2]\n  ;; Some comment\n  (let [a 1\n        b (+ arg1 arg2)]\n    (+ a b)))"},
-                 :var/line 10,
-                 :var/name some-function,
-                 :var/namespace 1653199087,
-                 :var/public? true,
-                 :var/refs
-                 [{:db/id 1166623671,
-                   :var-ref/column 7,
-                   :var-ref/in-function #:db{:id 993887617},
-                   :var-ref/line 10,
-                   :var-ref/namespace #:db{:id 1653199087}}]}]})))))
+                 :var/public? true}]})))))
 
 (deftest file-change-handler-test
   (testing "A modified file without any modification should have the same facts retracted than added"

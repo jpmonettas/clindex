@@ -1,4 +1,16 @@
 (ns clindex.indexer
+  "Indexer, provides functionality to collects facts about projects and namespaces.
+
+  Collects facts about :
+  - projects (name, dependencies, version, namespaces)
+  - files (name)
+  - namespaces (name, file, vars, docstring)
+  - vars (name, line, public?, refs)
+  - and a bunch more by extending `clindex.forms-facts/form-facts`
+  Its main api consists of :
+  - `namespace-full-facts`
+  - `all-facts`
+  "
   (:require [datascript.core :as d]
             [clojure.zip :as zip]
             [clojure.string :as str]
@@ -29,14 +41,16 @@
         vars-facts (fn [vs pub?]
                      (mapcat (fn [v]
                                (let [vid (utils/var-id (:namespace/name ns) v)
-                                     vline (-> v meta :line)]
-                                 (when (nil? vline)
+                                     {:keys [line column end-line end-column]} (meta v)]
+                                 (when (nil? line)
                                    (println (format "[Warning], no line meta for %s/%s" (:namespace/name ns) v)))
                                  (cond-> [[:db/add vid :var/name v]
                                           [:db/add vid :var/public? pub?]
                                           [:db/add vid :var/namespace ns-id]
                                           [:db/add ns-id :namespace/vars vid]]
-                                   vline (into [[:db/add vid :var/line vline]]))))
+                                   line (into [[:db/add vid :var/line       line]
+                                               [:db/add vid :var/column     column]
+                                               [:db/add vid :var/end-column end-column]]))))
                              vs))
         facts (cond-> (-> [[:db/add ns-id :namespace/name (:namespace/name ns)]
                            [:db/add (utils/project-id (:namespace/project ns)) :project/namespaces ns-id]
@@ -193,13 +207,14 @@
                      (if (and (is-var var)
                               (not (:in-protocol ctx)))
                        (let [[var-ns var-symb] var
-                             {:keys [line column]} (meta (zip/node zloc))
+                             {:keys [line column end-column]} (meta (zip/node zloc))
                              vr-id (utils/var-ref-id var-ns var-symb ns-symb line column)]
                          (into facts (cond-> [[:db/add (utils/var-id var-ns var-symb) :var/refs vr-id]
                                               [:db/add vr-id :var-ref/namespace (utils/namespace-id ns-symb)]
                                               [:db/add vr-id :var-ref/in-function (utils/function-id ns-symb (:in-function ctx))]]
-                                       line (into [[:db/add vr-id :var-ref/line line]])
-                                       column (into [[:db/add vr-id :var-ref/column column]]))))
+                                       line (into [[:db/add vr-id :var-ref/line line]
+                                                   [:db/add vr-id :var-ref/column column]
+                                                   [:db/add vr-id :var-ref/end-column end-column]]))))
                        facts))
                    ctx)
 

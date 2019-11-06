@@ -1,4 +1,15 @@
 (ns clindex.scanner
+  "Scanner, provides functionality for scanning complete projects for a platform.
+
+  Starting from a deps.edn or project.clj project it can download all project dependencies,
+  scan all source files inside local folders or jars and return a map of namespaces with tons
+  of information about them. (See: :scanner/namespace spec)
+
+  Its main api consists of :
+  - `scan-all-projects`
+  - `scan-namespace`
+  - `scan-namespaces`
+  "
   (:require [clojure.string :as str]
             [clindex.utils :as utils]
             [clojure.tools.deps.alpha.util.io :as tools-io]

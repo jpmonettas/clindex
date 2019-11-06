@@ -49,8 +49,10 @@
    ;; A non namespaced symbol with the var name
    :var/name               {:db/cardinality :db.cardinality/one}
 
-   ;; A integer containing the var line
+   ;; A integers containing the var definition coordinates
    :var/line               {:db/cardinality :db.cardinality/one}
+   :var/column             {:db/cardinality :db.cardinality/one}
+   :var/end-column         {:db/cardinality :db.cardinality/one}
 
    ;; True if the var is public in the namespace
    :var/public?            {:db/cardinality :db.cardinality/one}
@@ -116,11 +118,10 @@
    ;; A reference to the namespace in which this var-ref is found
    :var-ref/namespace      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
 
-   ;; The line of the reference
+   ;; The var reference coordinates
    :var-ref/line           {:db/cardinality :db.cardinality/one}
-
-   ;; The column of the reference
-   :var-ref/col            {:db/cardinality :db.cardinality/one}
+   :var-ref/column         {:db/cardinality :db.cardinality/one}
+   :var-ref/end-column     {:db/cardinality :db.cardinality/one}
 
    ;; A reference to the function this var-ref is in
    :var-ref/in-function    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
