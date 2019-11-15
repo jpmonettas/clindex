@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.2.4 (2019-11-15)
+
 - Fix ::keyword reading
 - Add clindex.api/db-schema
 - Add :var/[column end-column] and :var-ref/[column end-column] to the schema
