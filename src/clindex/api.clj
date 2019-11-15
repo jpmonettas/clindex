@@ -14,6 +14,7 @@
             [clojure.pprint :as pprint]
             [clojure.spec.alpha :as s]))
 
+(def effective-schema (atom nil))
 (def db-conns (atom {}))
 (def all-projects-by-platform (atom nil))
 (def all-ns-by-platform (atom nil))
@@ -145,7 +146,8 @@
                         (dissoc ::ns-track/unload ::ns-track/load)) ;; we can discard this first time since we are indexing everything
             tx-data (indexer/all-facts {:projects all-projs
                                         :namespaces all-ns})]
-        (swap! db-conns assoc p (d/create-conn (merge schema extra-schema)))
+        (reset! effective-schema (merge schema extra-schema))
+        (swap! db-conns assoc p (d/create-conn @effective-schema))
         (swap! all-projects-by-platform assoc p all-projs)
         (swap! all-ns-by-platform assoc p all-ns)
         (swap! trackers-by-platform assoc p tracker)
@@ -168,3 +170,8 @@
   "Returns the datascript db index for the `platform`"
   [platform]
   @(get @db-conns platform))
+
+(defn db-schema
+  "Returns the current dbs schema"
+  []
+  @effective-schema)
