@@ -91,7 +91,7 @@
                  {:db/id 182575839,
                   :function/args ["[a b]"],
                   :function/macro? true,
-                  :function/source-form (clojure.core/defmacro some-macro [a b] (clojure.core/sequence (clojure.core/seq (clojure.core/concat (clojure.core/list 'clojure.core/+) (clojure.core/list 'user/a) (clojure.core/list 'user/b))))),
+                  :function/source-form (clojure.core/defmacro some-macro [a b] (clojure.core/sequence (clojure.core/seq (clojure.core/concat (clojure.core/list 'clojure.core/+) (clojure.core/list 'test-code/a) (clojure.core/list 'test-code/b))))),
                   :function/source-str "(defmacro some-macro [a b]\n  `(+ a b)))"},
                  :var/public? true}
                 {:var/name some-function,

@@ -161,7 +161,7 @@
 ;; Namespaces scanning ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- read-namespace-forms [full-path alias-map readers read-opts]
+(defn- read-namespace-forms [full-path ns-name alias-map readers read-opts]
   (binding [reader/*data-readers* (merge tags/*cljs-data-readers* readers)
             ;; this is relaying on a implementation detail, tools.reader/read calls
             ;; *alias-map* as a fn, so we can resolve to a dummy ns and allow reader to continue
@@ -174,10 +174,12 @@
                                               :alias alias})
                                      unresolved-ns)))
             reader/*read-eval* false
-            ;; read everythig as we are on the user namespace, this is only important when runnning from repl
-            ;; since if repl is on a different namespace, some symbols will be read with current namespace
-            ;; and some tests can fail
-            *ns* (the-ns 'user)]
+            ;; *ns* (try (the-ns ns-name) (catch Exception e (the-ns 'user)))
+            ]
+    ;; this is super hacky. If we don't create the ns and set *ns* to it
+    ;; reader will read all ::keyword as :user/keyword instead of correctly namespacing them
+    ;; (which makes sense because of how clojure reader works)
+    (in-ns ns-name)
     (try
       (let [file-str (slurp full-path)]
         (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" file-str "]"))
@@ -293,11 +295,11 @@
                               (utils/normalize-path file))
           alias-map (merge (aliases-from-ns-decl ns-decl platform)
                            (aliases-from-alias-forms file))
-          ns-forms (read-namespace-forms file-content-path alias-map readers (:read-opts platform))
+          ns-name (ns-parse/name-from-ns-decl ns-decl)
+          ns-forms (read-namespace-forms file-content-path ns-name alias-map readers (:read-opts platform))
           ns-form-lists (map :form-list ns-forms)
           pub-vars (public-vars ns-form-lists)
           priv-vars (private-vars ns-form-lists)
-          ns-name (ns-parse/name-from-ns-decl ns-decl)
           ns-doc (doc-from-ns-decl ns-decl)]
       ;; TODO probably around here we need to deal with the feature of cljs that lets you
       ;; require clojure.set but that is kind of a alias to cljs.set

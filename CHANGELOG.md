@@ -3,6 +3,7 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Fix ::keyword reading
 - Add clindex.api/db-schema
 - Add :var/[column end-column] and :var-ref/[column end-column] to the schema
 - Fix scanner read-namespace-forms for non list forms
