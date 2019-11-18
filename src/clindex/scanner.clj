@@ -162,6 +162,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- read-namespace-forms [full-path ns-name alias-map readers read-opts]
+  (create-ns ns-name)
   (binding [reader/*data-readers* (merge tags/*cljs-data-readers* readers)
             ;; this is relaying on a implementation detail, tools.reader/read calls
             ;; *alias-map* as a fn, so we can resolve to a dummy ns and allow reader to continue
@@ -174,12 +175,7 @@
                                               :alias alias})
                                      unresolved-ns)))
             reader/*read-eval* false
-            ;; *ns* (try (the-ns ns-name) (catch Exception e (the-ns 'user)))
-            ]
-    ;; this is super hacky. If we don't create the ns and set *ns* to it
-    ;; reader will read all ::keyword as :user/keyword instead of correctly namespacing them
-    ;; (which makes sense because of how clojure reader works)
-    (in-ns ns-name)
+            *ns* (find-ns ns-name)]
     (try
       (let [file-str (slurp full-path)]
         (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" file-str "]"))
