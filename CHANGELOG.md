@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Add :namespace/depends to the index
+
 ## 0.2.4 (2019-11-15)
 
 - Fix ::keyword reading

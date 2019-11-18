@@ -28,6 +28,7 @@
                :namespace/docstring "A not so well documented namespace",
                :namespace/file #:db{:id 1895585013},
                :namespace/name test-code,
+               :namespace/depends [#:db{:id 482712339} #:db{:id 544082019} #:db{:id 1771627449}]
                :namespace/vars
                [{:db/id 189378944,
                  :var/column 4,

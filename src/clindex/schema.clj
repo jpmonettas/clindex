@@ -42,6 +42,9 @@
    ;; Namespace documentation string
    :namespace/docstring    {:db/cardinality :db.cardinality/one}
 
+   ;; A collection of references to other namespaces which this depends on
+   :namespace/depends      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+
    ;;;;;;;;;;
    ;; Vars ;;
    ;;;;;;;;;;

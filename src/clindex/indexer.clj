@@ -52,12 +52,16 @@
                                                [:db/add vid :var/column     column]
                                                [:db/add vid :var/end-column end-column]]))))
                              vs))
+        ns-dependencies-facts (map (fn [ns-dep-symb]
+                                     [:db/add ns-id :namespace/depends (utils/namespace-id ns-dep-symb)])
+                                   (:namespace/dependencies ns))
         facts (cond-> (-> [[:db/add ns-id :namespace/name (:namespace/name ns)]
                            [:db/add (utils/project-id (:namespace/project ns)) :project/namespaces ns-id]
                            [:db/add ns-id :namespace/file (utils/file-id (:namespace/file-content-path ns))]]
                           (into (vars-facts (:namespace/public-vars ns) true))
                           (into (vars-facts (:namespace/private-vars ns) false))
-                          (into (vars-facts (:namespace/macros ns) true)))
+                          (into (vars-facts (:namespace/macros ns) true))
+                          (into ns-dependencies-facts))
                 ns-doc (into [[:db/add ns-id :namespace/docstring ns-doc]]))]
     facts))
 
