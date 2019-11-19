@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file. This change
 ## [Unreleased]
 
 - Add :namespace/depends to the index
+- Fix scanning and indexing of vars defined like core/def, clojure.core/def, etc + clojurescript multimethods
 
 ## 0.2.4 (2019-11-15)
 

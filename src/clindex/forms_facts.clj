@@ -101,7 +101,7 @@
 (defmethod form-facts 'cljs.core/defmulti [all-ns-map ctx form]
   (defmulti-facts all-ns-map ctx form))
 
-(defmethod form-facts 'clojure.core/defmethod [all-ns-map ctx [_ var-name dispatch-val :as form]]
+(defn- defmethod-facts [all-ns-map ctx [_ var-name dispatch-val :as form]]
   (let [ns-name (:namespace/name ctx)
         form-str (:form-str (meta form))
         multi-id (utils/multi-id ns-name var-name)
@@ -112,7 +112,13 @@
                      [:db/add method-id :multimethod/dispatch-val (or dispatch-val 'nil-value)]
                      [:db/add method-id :multimethod/source-form (vary-meta form dissoc :form-str)]]
               form-str (into [[:db/add method-id :multimethod/source-str form-str]]))
-    :ctx ctx}))
+     :ctx ctx}))
+
+(defmethod form-facts 'clojure.core/defmethod [all-ns-map ctx form]
+  (defmethod-facts all-ns-map ctx form))
+
+(defmethod form-facts 'cljs.core/defmethod [all-ns-map ctx form]
+  (defmethod-facts all-ns-map ctx form))
 
 (defmethod form-facts :default
   [all-ns-map ctx form]

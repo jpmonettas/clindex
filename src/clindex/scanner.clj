@@ -201,18 +201,27 @@
 
             (throw e)))))))
 
+(defn- clojure-core-namespaced? [symb alias-map]
+  (when-let [ns (namespace symb)]
+    (or (= (symbol ns) 'clojure.core)
+        (= (symbol ns) 'cljs.core)
+        (= (alias-map (symbol ns)) 'clojure.core)
+        (= (alias-map (symbol ns)) 'cljs.core))))
+
 (defn- form-public-var
   "If form defines a public var, returns the var name, nil otherwise"
-  [[symb vname]]
-  (and (*def-public-set* symb)
+  [[symb vname] alias-map]
+  (and (or (*def-public-set* symb)                      ;; it is a def, defn, etc
+           (and (*def-public-set* (symbol (name symb))) ;; or it is core/def, clojure.core/def, etc
+                (clojure-core-namespaced? symb alias-map)))
        (not (:private (meta symb)))
        vname))
 
-(defn- public-vars [ns-forms]
+(defn- public-vars [ns-forms alias-map]
   (->> ns-forms
        (mapcat (fn [form]
                  (when-let [symb (and (list? form) (first form))]
-                   (when-let [pv (form-public-var form)]
+                   (when-let [pv (form-public-var form alias-map)]
                      (cond-> [pv]
                        ;; when defprotocol   ;; grab all proto fns names
                        (= symb 'defprotocol) (into (->> form
@@ -223,23 +232,29 @@
 
 (defn- form-macro
   "If form defines a macro, returns the macro name, nil otherwise"
-  [[symb vname]]
-  (when (*def-macro-set* symb)
+  [[symb vname] alias-map]
+  (when (or (*def-macro-set* symb)
+            (and (*def-macro-set* (symbol (name symb)))
+                 (clojure-core-namespaced? symb alias-map)))
     vname))
 
-(defn- macros [ns-forms]
-  (into #{} (keep form-macro ns-forms)))
+(defn- macros [ns-forms alias-map]
+  (into #{} (keep #(form-macro % alias-map) ns-forms)))
 
 (defn- form-private-var
   "If form defines a private var, returns the var name, nil otherwise"
-  [[symb vname]]
-  (when (or (*def-private-set* symb)
-            (and (*def-public-set* symb)
+  [[symb vname] alias-map]
+  (when (or (*def-private-set* symb)                                   ; is defn- , etc
+            (and (*def-private-set* (symbol (name symb)))              ; OR core/defn- clojure.core/defn-
+                 (clojure-core-namespaced? symb alias-map))
+            (and (or (*def-public-set* symb)                           ; or def, core/def, etc but with ^{:private true}
+                     (and (*def-public-set* (symbol (name symb)))
+                          (clojure-core-namespaced? symb alias-map)))
                  (:private (meta symb))))
     vname))
 
-(defn- private-vars [ns-forms]
-  (into #{} (keep form-private-var ns-forms)))
+(defn- private-vars [ns-forms alias-map]
+  (into #{} (keep #(form-private-var % alias-map) ns-forms)))
 
 (defn- aliases-from-ns-decl [ns-form platform]
   ;; clojure ns-form spec doesn't work for cljs ns declarations
@@ -294,8 +309,9 @@
           ns-name (ns-parse/name-from-ns-decl ns-decl)
           ns-forms (read-namespace-forms file-content-path ns-name alias-map readers (:read-opts platform))
           ns-form-lists (map :form-list ns-forms)
-          pub-vars (public-vars ns-form-lists)
-          priv-vars (private-vars ns-form-lists)
+          pub-vars (public-vars ns-form-lists alias-map)
+          priv-vars (private-vars ns-form-lists alias-map)
+          macros (macros ns-form-lists alias-map)
           ns-doc (doc-from-ns-decl ns-decl)]
       ;; TODO probably around here we need to deal with the feature of cljs that lets you
       ;; require clojure.set but that is kind of a alias to cljs.set
@@ -314,7 +330,7 @@
                 :namespace/forms ns-forms
                 :namespace/public-vars pub-vars
                 :namespace/private-vars priv-vars
-                :namespace/macros (macros ns-form-lists)}])))
+                :namespace/macros macros}])))
 
 (defn- merge-namespaces
   "Given a list of [ns-name ns-map] returns a map like {ns-name ns-map}
