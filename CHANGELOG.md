@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.2.5 (2019-11-21)
+
 - Add spec indexing, (see schema)
 - Add :namespace/depends to the index
 - Fix scanning and indexing of vars defined like core/def, clojure.core/def, etc + clojurescript multimethods
