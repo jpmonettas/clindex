@@ -10,6 +10,8 @@
   (str s1 s2))
 
 ;; Things tha contains docs
+;; ------------------------
+
 (def var-with-doc "Some doc" 5)
 (defn function-with-doc "Returns constantly true" [args] (constantly true))
 (defn function-with-doc-and-meta "Returns constantly true" {:added "1.2"} [args] (constantly true))

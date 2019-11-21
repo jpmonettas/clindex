@@ -3,6 +3,7 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Add spec indexing, (see schema)
 - Add :namespace/depends to the index
 - Fix scanning and indexing of vars defined like core/def, clojure.core/def, etc + clojurescript multimethods
 

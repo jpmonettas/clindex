@@ -113,6 +113,12 @@
 (defn multimethod-id [namespace-symb var-symb dispatch-val]
   (stable-id :multimethod namespace-symb var-symb dispatch-val))
 
+(defn fspec-alpha-id [namespace-symb var-symb]
+  (stable-id :fspec-alpha namespace-symb var-symb))
+
+(defn spec-alpha-id [namespace-symb spec-key]
+  (stable-id :spec-alpha namespace-symb spec-key))
+
 (defn rectangle-select
   "Given a string with lines, returns a string with the subregion
   between l1 and l2 lines and c1 and c2 columns.

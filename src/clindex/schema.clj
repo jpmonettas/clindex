@@ -45,6 +45,12 @@
    ;; A collection of references to other namespaces which this depends on
    :namespace/depends      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
 
+   ;; A collection of references to specs alpha
+   :namespace/specs-alpha  {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many :db/isComponent true}
+
+   ;; A collection of references to functions specs alpha
+   :namespace/fspecs-alpha {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many :db/isComponent true}
+
    ;;;;;;;;;;
    ;; Vars ;;
    ;;;;;;;;;;
@@ -95,6 +101,9 @@
    ;; A collection of argument vectors as strings, it is a collection because fns can have multiple arities
    :function/args          {:db/cardinality :db.cardinality/many}
 
+   ;; A reference to the function spec (alpha version) (See :fspec.alpha/*)
+   :function/spec.alpha    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+
    ;;;;;;;;;;;;;;;;;;
    ;; Multimethods ;;
    ;;;;;;;;;;;;;;;;;;
@@ -128,4 +137,17 @@
 
    ;; A reference to the function this var-ref is in
    :var-ref/in-function    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+
+   ;;;;;;;;;;;;;;;;;;;;;;;;
+   ;; Clojure spec alpha ;;
+   ;;;;;;;;;;;;;;;;;;;;;;;;
+
+   ;; The form of the function spec definition as a list
+   :fspec.alpha/source-form      {:db/cardinality :db.cardinality/one}
+
+   ;; The form of the spec definition as a list
+   :spec.alpha/source-form       {:db/cardinality :db.cardinality/one}
+
+   ;; The spec key in the spec registry
+   :spec.alpha/key               {:db/cardinality :db.cardinality/one}
    })

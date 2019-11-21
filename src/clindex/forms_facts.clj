@@ -2,7 +2,8 @@
   (:require [clindex.utils :as utils]
             [clojure.string :as str]
             [clojure.core.specs.alpha :as core-specs]
-            [clojure.spec.alpha :as s]))
+            [clojure.spec.alpha :as s]
+            [clindex.resolve-utils :as resolve-utils]))
 
 (defn- parse-fn-form [form]
   (let [{:keys [fn-name docstring meta fn-tail]} (s/conform ::core-specs/defn-args (rest form))
@@ -119,6 +120,38 @@
 
 (defmethod form-facts 'cljs.core/defmethod [all-ns-map ctx form]
   (defmethod-facts all-ns-map ctx form))
+
+(defn- spec-alpha-fdef-facts [all-ns-map ctx [_ f-name :as form]]
+  (let [fqfn (resolve-utils/fully-qualify-symb all-ns-map (:namespace/name ctx) f-name)
+        f-id (utils/function-id (symbol (namespace fqfn)) (symbol (name fqfn)))
+        fspec-id (utils/fspec-alpha-id (:namespace/name ctx) (symbol (name fqfn)))
+        ns-id (utils/namespace-id (:namespace/name ctx))
+        source-form (vary-meta form dissoc :form-str)]
+    {:facts [[:db/add ns-id :namespace/fspecs-alpha fspec-id]
+             [:db/add f-id :function/spec.alpha fspec-id]
+             [:db/add fspec-id :fspec.alpha/source-form source-form]]
+     :ctx ctx}))
+
+(defmethod form-facts 'clojure.spec.alpha/fdef [all-ns-map ctx form]
+  (spec-alpha-fdef-facts all-ns-map ctx form))
+
+(defmethod form-facts 'cljs.spec.alpha/fdef [all-ns-map ctx form]
+  (spec-alpha-fdef-facts all-ns-map ctx form))
+
+(defn- spec-alpha-def-facts [all-ns-map ctx [_ spec-key :as form]]
+  (let [spec-id (utils/spec-alpha-id (:namespace/name ctx) spec-key)
+        ns-id (utils/namespace-id (:namespace/name ctx))
+        source-form (vary-meta form dissoc :form-str)]
+    {:facts [[:db/add ns-id :namespace/specs-alpha spec-id]
+             [:db/add spec-id :spec.alpha/key spec-key]
+             [:db/add spec-id :spec.alpha/source-form source-form]]
+     :ctx ctx}))
+
+(defmethod form-facts 'clojure.spec.alpha/def [all-ns-map ctx form]
+  (spec-alpha-def-facts all-ns-map ctx form))
+
+(defmethod form-facts 'cljs.spec.alpha/def [all-ns-map ctx form]
+  (spec-alpha-def-facts all-ns-map ctx form))
 
 (defmethod form-facts :default
   [all-ns-map ctx form]
