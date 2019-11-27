@@ -177,19 +177,21 @@
             reader/*read-eval* false
             *ns* (find-ns ns-name)]
     (try
-      (let [file-str (slurp full-path)]
+      (let [file-str (slurp full-path)
+            file-lines (str/split-lines file-str)]
         (when-let [forms (->> (reader-types/indexing-push-back-reader (str "[" file-str "]"))
                               (reader/read read-opts)
-                              (keep (fn [form]
+                              (keep (fn build-form [form]
                                       (when (and (list? form) (not= (first form) 'comment))
                                         (let [{:keys [line column end-line end-column]} (meta form)
                                               form-str (if (and line column end-line)
-                                                         (utils/rectangle-select file-str line end-line column)
+                                                         (utils/rectangle-select file-lines line end-line column)
                                                          (do
                                                            (println "[Warning] no meta line info found for " form)
                                                            ""))]
                                           {:form-list form
-                                           :form-str form-str})))))]
+                                           :form-str form-str}))))
+                              doall)]
           forms))
       (catch Exception e
         (let [{:keys [line type]} (ex-data e)]
@@ -377,7 +379,7 @@
                        (map io/file))]
 
     (->> (ns-find/find-ns-decls all-paths platform)
-         (map (fn [ns-decl] (scan-namespace-decl ns-decl all-projs platform)))
+         (pmap (fn [ns-decl] (scan-namespace-decl ns-decl all-projs platform)))
          ;; need to merge namespaces since we can have the same namespace in different files like in
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljc
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljs
@@ -404,4 +406,13 @@
 
   (map #(meta %) (ns-find/find-ns-decls [(io/file "/home/jmonetta/my-projects/district0x/memefactory/src")]))
 
+
+  ;; Performance test
+  (require '[clj-async-profiler.core :as prof])
+  (prof/serve-files 9090)
+  (prof/profile
+   (time
+    (let [all-projs (scan-all-projects "/home/jmonetta/my-projects/clindex/test-resources/test-project" {:platform ns-find/clj})
+          all-ns (scan-namespaces all-projs {:platform ns-find/clj})]
+      (prn (count all-ns)))))
   )

@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Performance improvement (scanner) from 14s to 0.7s
+
 ## 0.2.5 (2019-11-21)
 
 - Add spec indexing, (see schema)
