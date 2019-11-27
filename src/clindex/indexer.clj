@@ -39,7 +39,7 @@
 (defn- namespace-facts [ns]
   (let [ns-id (utils/namespace-id (:namespace/name ns))
         ns-doc (:namespace/docstring ns)
-        vars-facts (fn [vs pub?]
+        vars-facts (fn vars-facts [vs pub?]
                      (mapcat (fn [v]
                                (let [vid (utils/var-id (:namespace/name ns) v)
                                      {:keys [line column end-line end-column]} (meta v)]
@@ -127,9 +127,10 @@
 (defn- namespace-forms-facts [all-ns-map ns-symb]
   (println "indexing " ns-symb)
   (->> (:namespace/forms (get all-ns-map ns-symb))
-       (map (fn [{:keys [form-str form-list]}]
+       (map (fn enhance [{:keys [form-str form-list]}]
               (enhance-form-list form-list form-str all-ns-map ns-symb)))
-       (mapcat (partial deep-form-facts all-ns-map ns-symb))))
+       (pmap (partial deep-form-facts all-ns-map ns-symb))
+       (apply concat)))
 
 
 (s/fdef namespace-full-facts
@@ -150,7 +151,9 @@
 (defn all-facts [{:keys [projects namespaces]}]
   (let [all-projs-facts (mapcat project-facts (vals projects))
         all-files-facts (mapcat files-facts (vals projects))
-        all-source-facts (mapcat (fn [[ns-symb _]] (namespace-full-facts namespaces ns-symb)) namespaces)]
+        all-source-facts (->> namespaces
+                              (map (fn [[ns-symb _]] (namespace-full-facts namespaces ns-symb)))
+                              (apply concat))]
     (-> []
         (into all-projs-facts)
         (into all-files-facts)
@@ -179,33 +182,16 @@
 
   (def src-facts (source-facts all-ns))
 
-  (deep-form-facts
-   all-ns
-   'clindex.indexer
-   '(defn bla [x]
-      (let [a x]
-        (d/q (+ a 4)))))
+    ;; Performance test
+  (require '[clj-async-profiler.core :as prof])
+  (prof/serve-files 9090)
 
-  (deep-form-facts
-   all-ns
-   'clindex.indexer
-   '(defn bla [x]
-      (map namespace-facts 1 2)
-      (let [a x]
-        (d/q (+ a 4)))))
+  (def all-projs (scanner/scan-all-projects "/home/jmonetta/my-projects/clindex/test-resources/test-project" {:platform ns-find/clj}))
+  (def all-ns (scanner/scan-namespaces all-projs {:platform ns-find/clj}))
+
+  (prof/profile
+   (time
+    (prn (count (all-facts {:projects all-projs :namespaces all-ns})))))
 
 
-  (resolve-utils/fully-qualify-form-first-symb
-   all-ns-map
-   'clojure.data.xml.jvm.emit
-   '(ns clojure.data.xml.jvm.emit
-      "JVM implementation of the emitter details"
-      {:author "Herwig Hochleitner"}
-      (:require (clojure.data.xml [name :refer [qname-uri qname-local separate-xmlns gen-prefix *gen-prefix-counter*]] [pu-map :as pu] [protocols :refer [AsXmlString xml-str]] [impl :refer [extend-protocol-fns b64-encode compile-if]] event) [clojure.string :as str])
-      (:import (java.io OutputStreamWriter Writer StringWriter) (java.nio.charset Charset) (java.util.logging Logger Level) (javax.xml.namespace NamespaceContext QName) (javax.xml.stream XMLStreamWriter XMLOutputFactory) (javax.xml.transform OutputKeys Transformer TransformerFactory) (clojure.data.xml.event StartElementEvent EmptyElementEvent EndElementEvent CharsEvent CDataEvent CommentEvent QNameEvent) (clojure.lang BigInt) (java.net URI URL) (java.util Date) (java.text DateFormat SimpleDateFormat))))
-
-  (resolve-utils/fully-qualify-form-first-symb
-   all-ns-map
-   'clojure.data.xml.jvm.emit
-   '(clojure.data.xml [name :refer [qname-uri qname-local separate-xmlns gen-prefix *gen-prefix-counter*]] [pu-map :as pu] [protocols :refer [AsXmlString xml-str]] [impl :refer [extend-protocol-fns b64-encode compile-if]] event))
   )

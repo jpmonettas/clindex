@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 ## [Unreleased]
-
+- Performance improvement (indexer) from 30s to 2s
 - Performance improvement (scanner) from 14s to 0.7s
 
 ## 0.2.5 (2019-11-21)

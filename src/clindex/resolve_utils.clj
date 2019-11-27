@@ -44,39 +44,41 @@
       (let [ns (get all-ns-map fns-symb)]
         (contains? (:namespace/macros ns) fsymb)))))
 
-(defn fully-qualify-symb [all-ns-map ns-symb symb]
-  (let [ns (get all-ns-map ns-symb)
-        ns-deps (:namespace/dependencies ns)
-        ns-alias-map (:namespace/alias-map ns)
-        ns-vars (-> #{}
-                    (into (:namespace/public-vars ns))
-                    (into (:namespace/private-vars ns))
-                    (into (:namespace/macros ns)))
-        symb-ns (when-let [s (namespace symb)]
-                  (symbol s))
-        fqs (cond
+(def fully-qualify-symb
+  (memoize
+   (fn [all-ns-map ns-symb symb]
+     (let [ns (get all-ns-map ns-symb)
+           ns-deps (:namespace/dependencies ns)
+           ns-alias-map (:namespace/alias-map ns)
+           ns-vars (-> #{}
+                       (into (:namespace/public-vars ns))
+                       (into (:namespace/private-vars ns))
+                       (into (:namespace/macros ns)))
+           symb-ns (when-let [s (namespace symb)]
+                     (symbol s))
+           fqs (cond
 
-              ;; check OR
-              (or (and symb-ns (contains? all-ns-map symb-ns)) ;; it is already fully qualified
-                  (special-symbol? symb)                       ;; it is a special symbol
-                  (str/starts-with? (name symb) "."))          ;; it is field access or method
-              symb
+                 ;; check OR
+                 (or (and symb-ns (contains? all-ns-map symb-ns)) ;; it is already fully qualified
+                     (special-symbol? symb) ;; it is a special symbol
+                     (str/starts-with? (name symb) ".")) ;; it is field access or method
+                 symb
 
-              ;; check if it is in our namespace
-              (contains? ns-vars symb)
-              (symbol (name ns-symb) (name symb))
+                 ;; check if it is in our namespace
+                 (contains? ns-vars symb)
+                 (symbol (name ns-symb) (name symb))
 
-              ;; check if it is a namespaces symbol and can be expanded from aliases map
-              (and (namespace symb)
-                   (contains? ns-alias-map symb-ns))
-              (expand-symbol-alias ns-alias-map symb-ns symb)
+                 ;; check if it is a namespaces symbol and can be expanded from aliases map
+                 (and (namespace symb)
+                      (contains? ns-alias-map symb-ns))
+                 (expand-symbol-alias ns-alias-map symb-ns symb)
 
-              ;; try to search in all required namespaces for a :refer-all
-              :else
-              (resolve-symbol all-ns-map ns-symb symb))]
+                 ;; try to search in all required namespaces for a :refer-all
+                 :else
+                 (resolve-symbol all-ns-map ns-symb symb))]
 
-    ;; transfer symbol meta
-    (when fqs (with-meta fqs (meta symb)))))
+       ;; transfer symbol meta
+       (when fqs (with-meta fqs (meta symb)))))))
 
 (defn fully-qualify-form-first-symb [all-ns-map ns-symb form]
   (if (symbol? (first form))
@@ -101,18 +103,19 @@
           form)))
     form))
 
-(defn all-vars
+(def all-vars
   "Return all the vars defined in all namespaces like [var-namespace var-name]"
-  [all-ns-map]
-  (->> (vals all-ns-map)
-       (mapcat (fn [ns]
-                 (let [ns-vars (-> (:namespace/public-vars ns)
-                                   (into (:namespace/private-vars ns))
-                                   (into (:namespace/macros ns)))]
-                   (map (fn [v]
-                          [(:namespace/name ns) v])
-                        ns-vars))))
-       (into #{})))
+  (memoize
+   (fn [all-ns-map]
+     (->> (vals all-ns-map)
+          (mapcat (fn [ns]
+                    (let [ns-vars (-> (:namespace/public-vars ns)
+                                      (into (:namespace/private-vars ns))
+                                      (into (:namespace/macros ns)))]
+                      (map (fn [v]
+                             [(:namespace/name ns) v])
+                           ns-vars))))
+          (into #{})))))
 
 (defn split-symb-namespace [fq-symb]
   (when fq-symb
