@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Prevent crashing when can't resolve a fspec symbol namespace
+
 ## 0.3.0 (2019-11-27)
 
 - Performance improvement (indexer) from 30s to 2s

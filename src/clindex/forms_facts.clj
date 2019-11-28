@@ -122,15 +122,21 @@
   (defmethod-facts all-ns-map ctx form))
 
 (defn- spec-alpha-fdef-facts [all-ns-map ctx [_ f-name :as form]]
-  (let [fqfn (resolve-utils/fully-qualify-symb all-ns-map (:namespace/name ctx) f-name)
-        f-id (utils/function-id (symbol (namespace fqfn)) (symbol (name fqfn)))
-        fspec-id (utils/fspec-alpha-id (:namespace/name ctx) (symbol (name fqfn)))
-        ns-id (utils/namespace-id (:namespace/name ctx))
-        source-form (vary-meta form dissoc :form-str)]
-    {:facts [[:db/add ns-id :namespace/fspecs-alpha fspec-id]
-             [:db/add f-id :function/spec.alpha fspec-id]
-             [:db/add fspec-id :fspec.alpha/source-form source-form]]
-     :ctx ctx}))
+  (let [fqfn (resolve-utils/fully-qualify-symb all-ns-map (:namespace/name ctx) f-name)]
+    (if-let [fqfn-ns (namespace fqfn)]
+      (let [f-id (utils/function-id (symbol fqfn-ns) (symbol (name fqfn)))
+            fspec-id (utils/fspec-alpha-id (:namespace/name ctx) (symbol (name fqfn)))
+            ns-id (utils/namespace-id (:namespace/name ctx))
+            source-form (vary-meta form dissoc :form-str)]
+        {:facts [[:db/add ns-id :namespace/fspecs-alpha fspec-id]
+                 [:db/add f-id :function/spec.alpha fspec-id]
+                 [:db/add fspec-id :fspec.alpha/source-form source-form]]
+         :ctx ctx})
+
+      (do
+        (println "[Warning] Couldn't resolve the ns for" f-name "inside" (:namespace/name ctx) "when parsing spec form" form)
+        {:facts []
+         :ctx ctx}))))
 
 (defmethod form-facts 'clojure.spec.alpha/fdef [all-ns-map ctx form]
   (spec-alpha-fdef-facts all-ns-map ctx form))
