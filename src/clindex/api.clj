@@ -1,4 +1,8 @@
 (ns clindex.api
+  "The namespace intended to be required by clindex users.
+
+  Use `index-project!` for indexing any project and `db` for retrieveing
+  datascript dbs by platform."
   (:require [clindex.scanner :as scanner]
             [clindex.indexer :as indexer]
             [datascript.core :as d]

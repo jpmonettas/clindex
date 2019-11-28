@@ -176,3 +176,11 @@ who calls clojure.core/juxt ?
 ## Projects known to be using clindex
 
 - [Clograms](https://github.com/jpmonettas/clograms) Explore clojure codebases by building diagrams
+
+## For developers
+
+This is a high level overview of the api and the scanner.
+<img src="/doc/api-and-scanner-diagram.png?raw=true"/>
+
+This is a high level overview of the indexer.
+<img src="/doc/indexer.png?raw=true"/>
