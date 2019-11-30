@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.3.1 (2019-11-30)
+
 - Prevent crashing when can't resolve a fspec symbol namespace
 
 ## 0.3.0 (2019-11-27)
