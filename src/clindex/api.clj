@@ -91,11 +91,16 @@
       process-unloads
       (process-loads opts)))
 
-(defn- file-change-handler [on-new-facts platforms ctx {:keys [kind file]}] ;; kind can be :create, :modify or :delete ;; file is java.io.File
+(defn- index-file? [file-name platform]
   ;; to avoid indexing emacs backup files
-  ;; TODO, fix this is a nicer way
-  (when-not (.startsWith (.getName file) ".#")
-    (doseq [p platforms]
+  (and (not (.startsWith file-name ".#"))
+       (or (.endsWith file-name "clj")
+           (.endsWith file-name "cljc")
+           (.endsWith file-name "cljs"))))
+
+(defn- file-change-handler [on-new-facts platforms ctx {:keys [kind file]}] ;; kind can be :create, :modify or :delete ;; file is java.io.File
+  (doseq [p platforms]
+    (when (index-file? (.getName file) p)
       (let [plat-opts (build-opts p)
             all-platform-projs (get @all-projects-by-platform p)
             all-platform-ns (get @all-ns-by-platform p)
@@ -107,7 +112,12 @@
                                   (ns-track/remove platform-tracker [ns-symb]))
 
                                 (#{:modify :add} kind)
-                                (let [ns-decl (ns-file/read-file-ns-decl file ns-find/clj)
+                                (let [ns-decl (try
+                                                (ns-file/read-file-ns-decl file ns-find/clj)
+                                                (catch Exception e
+                                                  (println "[Warning] exception while trying to read ns-decl for " (merge
+                                                                                                                    {:file-path file-path}
+                                                                                                                    (ex-data e)))))
                                       ns-symb (with-meta (ns-parse/name-from-ns-decl ns-decl)
                                                 {:namespace/file-content-path file-path})
                                       deps (ns-parse/deps-from-ns-decl ns-decl)]
