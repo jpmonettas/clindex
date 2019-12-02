@@ -29,7 +29,7 @@
             [clindex.specs]
             [clojure.tools.deps.alpha.util.maven :as tool-deps-maven]))
 
-(def ^:dynamic *def-public-set* #{'def 'defn 'declare 'defmulti 'deftype 'defprotocol 'defrecod})
+(def ^:dynamic *def-public-set* #{'def 'defonce 'defn 'declare 'defmulti 'deftype 'defprotocol 'defrecod})
 (def ^:dynamic *def-macro-set* #{'defmacro})
 (def ^:dynamic *def-private-set* #{'defn-})
 

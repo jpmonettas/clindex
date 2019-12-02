@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Adds defonce to *def-public-set*
+
 ## 0.3.1 (2019-11-30)
 
 - Prevent crashing when can't resolve a fspec symbol namespace
@@ -35,8 +37,3 @@ All notable changes to this project will be documented in this file. This change
 - Index :namespace/docstring, :var/docstring and :function/args
 
 ## 0.2.1 (2019-10-29)
-
-### Fixes
-
-- Fix a bunch of watchers minors bugs
-- Fix defmulti facts when defmulti contains documentation
