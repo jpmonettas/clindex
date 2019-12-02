@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.3.2 (2019-12-02)
+
 - Adds defonce to *def-public-set*
 
 ## 0.3.1 (2019-11-30)
