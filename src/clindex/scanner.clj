@@ -67,22 +67,28 @@
                           :full-path
                           slurp
                           read-string)
-        {:keys [deps paths]} (or
-                              ;; tools deps
-                              tool-deps
+        {:keys [deps paths :mvn/repos]} (or
+                                         ;; tools deps
+                                         tool-deps
 
-                              ;; lein proj
-                              (let [[_ _ _ & r] lein-proj
-                                    {:keys [dependencies source-paths]} (->> (partition 2 r)
-                                                                             (map vec)
-                                                                             (into {}))]
-                                {:deps (->> dependencies
-                                            (map (fn [[p v]]
-                                                   [p {:mvn/version v}]))
-                                            (into {}))
-                                 :paths source-paths}))]
+                                         ;; lein proj
+                                         (let [[_ _ _ & r] lein-proj
+                                               {:keys [dependencies source-paths repositories]} (->> (partition 2 r)
+                                                                                                     (map vec)
+                                                                                                     (into {}))]
+                                           {:deps (->> dependencies
+                                                       (map (fn [[p v]]
+                                                              [p {:mvn/version v}]))
+                                                       (into {}))
+
+                                            ;; https://github.com/technomancy/leiningen/blob/master/sample.project.clj#L104
+                                            :mvn/repos (into {} repositories)
+                                            :paths source-paths}))
+        all-repos (merge repos tool-deps-maven/standard-repos)]
+    (prn "[Info] Using maven repos " all-repos)
     {:project/name main-project-symb
      :deps deps
+     :mvn/repos all-repos
      :project/dependencies (->> deps keys (into #{}))
      :paths (or paths ["src"])}))
 
@@ -113,7 +119,7 @@
                                  :paths []}}"
   [base-dir opts]
   (let [proj (find-project-in-dir base-dir)
-        all-projs (tools-dep/resolve-deps (update proj :mvn/repos merge tool-deps-maven/standard-repos) nil)]
+        all-projs (tools-dep/resolve-deps proj nil)]
     (->> (assoc all-projs main-project-symb (-> proj
                                                 (assoc :main? true)
                                                 (update :paths (fn [paths] (map #(str base-dir "/" %) paths)))))
@@ -298,41 +304,49 @@
       possible-doc)))
 
 (defn- scan-namespace-decl [ns-decl all-projs platform]
-  (let [file->proj (build-file->project-map all-projs)
-        readers (data-readers all-projs)]
-    (let [jar (when-let [jf (-> ns-decl meta :jar-file)]
+  (try
+    (let [file->proj (build-file->project-map all-projs)
+          readers (data-readers all-projs)
+          jar (when-let [jf (-> ns-decl meta :jar-file)]
                 (.getName jf))
           file (-> ns-decl meta :file io/file)
-          file-content-path (if jar
-                              (utils/jar-full-path jar (.getPath file))
-                              (utils/normalize-path file))
-          alias-map (merge (aliases-from-ns-decl ns-decl platform)
-                           (aliases-from-alias-forms file))
-          ns-name (ns-parse/name-from-ns-decl ns-decl)
-          ns-forms (read-namespace-forms file-content-path ns-name alias-map readers (:read-opts platform))
-          ns-form-lists (map :form-list ns-forms)
-          pub-vars (public-vars ns-form-lists alias-map)
-          priv-vars (private-vars ns-form-lists alias-map)
-          macros (macros ns-form-lists alias-map)
-          ns-doc (doc-from-ns-decl ns-decl)]
-      ;; TODO probably around here we need to deal with the feature of cljs that lets you
-      ;; require clojure.set but that is kind of a alias to cljs.set
-      [ns-name {:namespace/name ns-name
-                :namespace/docstring ns-doc
-                :namespace/alias-map alias-map
-                :namespace/dependencies (let [deps (ns-parse/deps-from-ns-decl ns-decl)]
-                                          (if-not (#{'clojure.core 'cljs.core} ns-name)
-                                           (conj deps
-                                                 (cond ;; add c.core as a dependency if it is not itself
-                                                   (= platform ns-find/clj) 'clojure.core
-                                                   (= platform ns-find/cljs) 'cljs.core))
-                                           deps))
-                :namespace/file-content-path file-content-path
-                :namespace/project (file->proj (or jar (utils/normalize-path file)))
-                :namespace/forms ns-forms
-                :namespace/public-vars pub-vars
-                :namespace/private-vars priv-vars
-                :namespace/macros macros}])))
+          ns-name (ns-parse/name-from-ns-decl ns-decl)]
+      (if-not (or file jar)
+
+        (prn (format "[Warning] No file content path in namespace %s declaration meta" ))
+
+        (let [file-content-path (if jar
+                                  (utils/jar-full-path jar (.getPath file))
+                                  (utils/normalize-path file))
+              alias-map (merge (aliases-from-ns-decl ns-decl platform)
+                               (aliases-from-alias-forms file))
+
+              ns-forms (read-namespace-forms file-content-path ns-name alias-map readers (:read-opts platform))
+              ns-form-lists (map :form-list ns-forms)
+              pub-vars (public-vars ns-form-lists alias-map)
+              priv-vars (private-vars ns-form-lists alias-map)
+              macros (macros ns-form-lists alias-map)
+              ns-doc (doc-from-ns-decl ns-decl)]
+          ;; TODO probably around here we need to deal with the feature of cljs that lets you
+          ;; require clojure.set but that is kind of a alias to cljs.set
+          [ns-name {:namespace/name ns-name
+                    :namespace/docstring ns-doc
+                    :namespace/alias-map alias-map
+                    :namespace/dependencies (let [deps (ns-parse/deps-from-ns-decl ns-decl)]
+                                              (if-not (#{'clojure.core 'cljs.core} ns-name)
+                                                (conj deps
+                                                      (cond ;; add c.core as a dependency if it is not itself
+                                                        (= platform ns-find/clj) 'clojure.core
+                                                        (= platform ns-find/cljs) 'cljs.core))
+                                                deps))
+                    :namespace/file-content-path file-content-path
+                    :namespace/project (file->proj (or jar (utils/normalize-path file)))
+                    :namespace/forms ns-forms
+                    :namespace/public-vars pub-vars
+                    :namespace/private-vars priv-vars
+                    :namespace/macros macros}])))
+    (catch Exception e
+      (prn "[Warning] couldn't scan namespace for ns-decl " ns-decl))))
 
 (defn- merge-namespaces
   "Given a list of [ns-name ns-map] returns a map like {ns-name ns-map}

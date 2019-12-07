@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Fix using other than standard repositories for leiningen and deps.edn
+
 ## 0.3.3 (2019-12-07)
 
 - Upgrades tools.deps.alpha and tools.analyzer.jvm
