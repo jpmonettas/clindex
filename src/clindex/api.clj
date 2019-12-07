@@ -158,14 +158,14 @@
             tracker (-> (ns-track/tracker)
                         (ns-track/add (build-dep-map (utils/reloadable-namespaces all-ns)))
                         (dissoc ::ns-track/unload ::ns-track/load)) ;; we can discard this first time since we are indexing everything
-            tx-data (indexer/all-facts {:projects all-projs
-                                        :namespaces all-ns})]
+            tx-data (-> (indexer/all-facts {:projects all-projs
+                                            :namespaces all-ns})
+                        utils/check-facts)]
         (reset! effective-schema (merge schema extra-schema))
         (swap! db-conns assoc p (d/create-conn @effective-schema))
         (swap! all-projects-by-platform assoc p all-projs)
         (swap! all-ns-by-platform assoc p all-ns)
         (swap! trackers-by-platform assoc p tracker)
-        (utils/check-facts tx-data)
         (println (format "About to transact %d facts" (count tx-data) "for platform" p))
         (d/transact! (get @db-conns p) tx-data)))
 
