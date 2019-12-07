@@ -88,6 +88,10 @@
               f))
           tx-data))
 
+(defn sane-classpath? []
+  (not (str/includes? (System/getProperty "java.class.path")
+                      "org/clojure/tools.namespace")))
+
 (defn stable-id [& args]
   (Math/abs (apply hash [args])))
 

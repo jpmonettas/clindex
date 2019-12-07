@@ -27,6 +27,8 @@
 (comment
   (index-project! "./test-resources/test-project" {:platforms #{:clj}})
 
+  (index-project! "/home/jmonetta/my-projects/district0x/memefactory" {:platforms #{:cljs}})
+
   (require '[clojure.pprint :as pprint])
   (file-change-handler (fn [diff] (pprint/pprint diff))
                        #{:clj}
@@ -148,33 +150,35 @@
     - :extra-schema, a datascript schema that is going to be merged with clindex.schema/schema
     - :on-new-facts, a fn of one arg that will be called with new facts everytime a file inside `base-dir` project sources changes"
   [base-dir {:keys [platforms extra-schema on-new-facts] :as opts}]
-  ;; index everything by platform
-  (let [source-paths (->> (:paths (scanner/find-project-in-dir base-dir))
-                          (map (fn [p] (str (utils/normalize-path (io/file base-dir)) p))))]
-    (doseq [p platforms]
-      (let [plat-opts (build-opts p)
-            all-projs (scanner/scan-all-projects base-dir plat-opts)
-            all-ns (scanner/scan-namespaces all-projs plat-opts)
-            tracker (-> (ns-track/tracker)
-                        (ns-track/add (build-dep-map (utils/reloadable-namespaces all-ns)))
-                        (dissoc ::ns-track/unload ::ns-track/load)) ;; we can discard this first time since we are indexing everything
-            tx-data (-> (indexer/all-facts {:projects all-projs
-                                            :namespaces all-ns})
-                        utils/check-facts)]
-        (reset! effective-schema (merge schema extra-schema))
-        (swap! db-conns assoc p (d/create-conn @effective-schema))
-        (swap! all-projects-by-platform assoc p all-projs)
-        (swap! all-ns-by-platform assoc p all-ns)
-        (swap! trackers-by-platform assoc p tracker)
-        (println (format "About to transact %d facts" (count tx-data) "for platform" p))
-        (d/transact! (get @db-conns p) tx-data)))
+  (if-not (utils/sane-classpath?)
+    (throw (ex-info "org.clojure/tools.namespace detected on classpath. Clindex uses a modified version of tools.namespace so exclude it from the classpath before continuing" {}))
+    ;; index everything by platform
+    (let [source-paths (->> (:paths (scanner/find-project-in-dir base-dir))
+                            (map (fn [p] (str (utils/normalize-path (io/file base-dir)) p))))]
+      (doseq [p platforms]
+        (let [plat-opts (build-opts p)
+              all-projs (scanner/scan-all-projects base-dir plat-opts)
+              all-ns (scanner/scan-namespaces all-projs plat-opts)
+              tracker (-> (ns-track/tracker)
+                          (ns-track/add (build-dep-map (utils/reloadable-namespaces all-ns)))
+                          (dissoc ::ns-track/unload ::ns-track/load)) ;; we can discard this first time since we are indexing everything
+              tx-data (-> (indexer/all-facts {:projects all-projs
+                                              :namespaces all-ns})
+                          utils/check-facts)]
+          (reset! effective-schema (merge schema extra-schema))
+          (swap! db-conns assoc p (d/create-conn @effective-schema))
+          (swap! all-projects-by-platform assoc p all-projs)
+          (swap! all-ns-by-platform assoc p all-ns)
+          (swap! trackers-by-platform assoc p tracker)
+          (println (format "About to transact %d facts" (count tx-data) "for platform" p))
+          (d/transact! (get @db-conns p) tx-data)))
 
-    ;; install watcher for reindexing when on-new-facts callback provided
-    (when on-new-facts
-      (println "Watching " source-paths)
-      (hawk/watch!
-       [{:paths source-paths
-         :handler (partial file-change-handler on-new-facts platforms)}])))
+      ;; install watcher for reindexing when on-new-facts callback provided
+      (when on-new-facts
+        (println "Watching " source-paths)
+        (hawk/watch!
+         [{:paths source-paths
+           :handler (partial file-change-handler on-new-facts platforms)}]))))
   nil)
 
 (s/fdef db
