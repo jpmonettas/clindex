@@ -13,6 +13,9 @@ pom.xml:
 
 release: clean clindex.jar pom.xml
 
+install: clindex.jar pom.xml
+	mvn install:install-file -Dfile=clindex.jar -DpomFile=pom.xml
+
 deploy:
 	mvn deploy:deploy-file -Dfile=clindex.jar -DrepositoryId=clojars -DpomFile=pom.xml -Durl=https://clojars.org/repo
 
