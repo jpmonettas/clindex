@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.3.3 (2019-12-07)
+
+- Upgrades tools.deps.alpha and tools.analyzer.jvm
+
 ## 0.3.2 (2019-12-02)
 
 - Adds defonce to *def-public-set*
