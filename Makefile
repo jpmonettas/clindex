@@ -1,4 +1,4 @@
-.PHONY: release clean help
+.PHONY: release deploy clean help
 
 clean:
 	-rm clindex.jar
@@ -11,7 +11,9 @@ pom.xml:
 	clj -Spom
 	mvn versions:set -DnewVersion=$(version)
 
-release: clindex.jar pom.xml
+release: clean clindex.jar pom.xml
+
+deploy:
 	mvn deploy:deploy-file -Dfile=clindex.jar -DrepositoryId=clojars -DpomFile=pom.xml -Durl=https://clojars.org/repo
 
 tag-release:
