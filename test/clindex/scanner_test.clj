@@ -89,7 +89,7 @@
                                                           when-class and when-some ->> refer-clojure}))
           "Namespace macros weren't parsed correctly")
 
-      (is (= (count (:namespace/public-vars clojure-core-ns)) 528)
+      (is (= (count (:namespace/public-vars clojure-core-ns)) 534)
           "Public vars count doesn't match")
 
       (is (= (count (:namespace/private-vars clojure-core-ns)) 30)

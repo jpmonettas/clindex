@@ -2,9 +2,9 @@
  :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
         datascript                     {:mvn/version "0.17.1"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
-        org.clojure/tools.deps.alpha   {:mvn/version "0.8.584"}
+        org.clojure/tools.deps.alpha   {:mvn/version "0.8.599"}
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
-        org.clojure/tools.analyzer.jvm {:mvn/version "0.7.2"}
+        org.clojure/tools.analyzer.jvm {:mvn/version "0.7.3"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}
         hawk                           {:mvn/version "0.2.11"}
         ;; org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}
