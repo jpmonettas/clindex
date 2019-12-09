@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.3.3 (2019-12-09)
+
 - Throw when indexing if org.clojure/tools.namespace is detected on the classpath
 - Fix using other than standard repositories for leiningen and deps.edn
 - Prevent nil value facts from crashing clindex, report them as warnings
