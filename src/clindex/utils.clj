@@ -84,7 +84,7 @@
                          (int? e)
                          (keyword? a)
                          (not (nil? v)))
-              (println "Fact check failed " f)
+              (println "[Warning] fact check failed " f)
               f))
           tx-data))
 

@@ -9,7 +9,7 @@
             [clindex.api :as capi]
             [clindex.scanner :as scanner]
             [clojure.pprint :as pprint]
-            [clindex.forms-facts :as forms-facts]
+            [clindex.forms-facts.core :as forms-facts]
             [clindex.utils :as utils]))
 
 (comment

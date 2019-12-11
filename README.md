@@ -9,7 +9,7 @@ Instead, as an api for talking about your code it gives you a datascript db full
 
 - Index **your project and all its dependency** tree (only lein and deps.edn supported so far)
 - **Big set of facts** out of the box, see [schema](/src/clindex/schema.clj)
-- **Extensible**, you can make any form generate any facts by adding a method for the `clindex.forms-facts/form-facts` multimethod
+- **Extensible**, you can make any form generate any facts by adding a method for the `clindex.forms-facts.core/form-facts` multimethod
 - **Hot reload**, watches your sources and reindexes whenever something on its source path changes, taking care of retraction and notification
 
 ## Installation
@@ -80,9 +80,12 @@ You can find the schema [here](/src/clindex/schema.clj).
 
 ## Extending clindex
 
-You can extend clindex to make any form generate any facts by adding implementations of the `clindex.forms-facts/form-facts` multimethod.
+You can extend clindex to make any form generate any facts by adding implementations of the `clindex.forms-facts.core/form-facts` multimethod.
 
-The dispatch value for `clindex.forms-facts/form-facts` is the fully qualified form first symbol. The method will receive as parameters :
+There are already some extensions not loaded by default, take a look at [/src/clindex/forms_facts/](here). For indexing re-frame facts for example just
+`(require [clindex.forms_facts.re-frame :as re-frame-facts])` and when calling index-project! add to the `:extra-schema` `re-frame-facts/extra-schema`.
+
+The dispatch value for `clindex.forms-facts.core/form-facts` is the fully qualified form first symbol. The method will receive as parameters :
 
 - `all-namespaces-map` (spec `:scanner/namespaces`)
 - `ctx` a context map that at least will contain `:namespace/name` and things like  `:in-function` if the form is inside a fn definition
@@ -96,7 +99,7 @@ It should return a map with the following keys :
 ### Example: indexing compojure routes
 ```clojure
 
-(require '[clindex.forms-facts :as forms-facts])
+(require '[clindex.forms-facts.core :as forms-facts])
 
 (clindex/index-project! "./test-resources/test-project/"
                         {:platforms #{:clj}

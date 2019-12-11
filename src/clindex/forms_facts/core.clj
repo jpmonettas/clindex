@@ -1,4 +1,4 @@
-(ns clindex.forms-facts
+(ns clindex.forms-facts.core
   (:require [clindex.utils :as utils]
             [clojure.string :as str]
             [clojure.core.specs.alpha :as core-specs]

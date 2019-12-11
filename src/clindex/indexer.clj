@@ -6,7 +6,7 @@
   - files (name)
   - namespaces (name, file, vars, docstring)
   - vars (name, line, public?, refs)
-  - and a bunch more by extending `clindex.forms-facts/form-facts`
+  - and a bunch more by extending `clindex.forms-facts.core/form-facts`
   Its main api consists of :
   - `namespace-full-facts`
   - `all-facts`
@@ -15,7 +15,7 @@
             [clojure.zip :as zip]
             [clojure.string :as str]
             [clindex.utils :as utils]
-            [clindex.forms-facts :refer [form-facts]]
+            [clindex.forms-facts.core :refer [form-facts]]
             [clojure.tools.namespace.track :as ns-track]
             [clojure.walk :as walk]
             [clojure.spec.alpha :as s]
