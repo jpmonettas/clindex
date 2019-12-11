@@ -3,6 +3,7 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Fix multimethod methods facts to correctly link methods with its multi definition
 ## 0.3.3 (2019-12-09)
 
 - Throw when indexing if org.clojure/tools.namespace is detected on the classpath

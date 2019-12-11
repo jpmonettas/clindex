@@ -108,17 +108,24 @@
   (defmulti-facts all-ns-map ctx form))
 
 (defn- defmethod-facts [all-ns-map ctx [_ var-name dispatch-val :as form]]
-  (let [ns-name (:namespace/name ctx)
-        form-str (:form-str (meta form))
-        multi-id (utils/multi-id ns-name var-name)
-        method-id (utils/multimethod-id ns-name var-name dispatch-val)]
-    {:facts (cond-> [[:db/add multi-id :multi/methods method-id]
-                     ;; multimethods can dispatch on nil but we can't create a nil valued fact so
-                     ;; lets use nil-value symbol
-                     [:db/add method-id :multimethod/dispatch-val (or dispatch-val 'nil-value)]
-                     [:db/add method-id :multimethod/source-form (vary-meta form dissoc :form-str)]]
-              form-str (into [[:db/add method-id :multimethod/source-str form-str]]))
-     :ctx ctx}))
+  (let [current-ns-name (:namespace/name ctx)
+        fqvar (resolve-utils/fully-qualify-symb all-ns-map current-ns-name var-name)]
+    (if-let [var-ns (namespace fqvar)]
+      (let [form-str (:form-str (meta form))
+            multi-id (utils/multi-id (symbol var-ns) (symbol (name fqvar)))
+            method-id (utils/multimethod-id current-ns-name var-name dispatch-val)]
+        {:facts (cond-> [[:db/add multi-id :multi/methods method-id]
+                         ;; multimethods can dispatch on nil but we can't create a nil valued fact so
+                         ;; lets use nil-value symbol
+                         [:db/add method-id :multimethod/dispatch-val (or dispatch-val 'nil-value)]
+                         [:db/add method-id :multimethod/source-form (vary-meta form dissoc :form-str)]]
+                  form-str (into [[:db/add method-id :multimethod/source-str form-str]]))
+         :ctx ctx})
+
+      (do
+        (println "[Warning] Couldn't resolve the ns for" var-name "inside" current-ns-name "when parsing defmethod form" form)
+        {:facts []
+         :ctx ctx}))))
 
 (defmethod form-facts 'clojure.core/defmethod [all-ns-map ctx form]
   (defmethod-facts all-ns-map ctx form))
