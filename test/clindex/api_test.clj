@@ -64,8 +64,8 @@
                   :multi/methods
                   [{:db/id 654778333,
                     :multimethod/dispatch-val java.lang.String,
-                    :multimethod/source-form (clojure.core/defmethod the-multi-method java.lang.String [s] (dep/concatenate "Hello " s)),
-                    :multimethod/source-str "(defmethod the-multi-method java.lang.String\n  [s]\n  (dep/concatenate \"Hello \" s))"}]},
+                    :source/form (clojure.core/defmethod the-multi-method java.lang.String [s] (dep/concatenate "Hello " s)),
+                    :source/str "(defmethod the-multi-method java.lang.String\n  [s]\n  (dep/concatenate \"Hello \" s))"}]},
                  :var/public? true}
                 {:db/id 453362419,
                  :var/column 14,
@@ -92,8 +92,8 @@
                  {:db/id 182575839,
                   :function/args ["[a b]"],
                   :function/macro? true,
-                  :function/source-form (clojure.core/defmacro some-macro [a b] (clojure.core/sequence (clojure.core/seq (clojure.core/concat (clojure.core/list 'clojure.core/+) (clojure.core/list 'test-code/a) (clojure.core/list 'test-code/b))))),
-                  :function/source-str "(defmacro some-macro [a b]\n  `(+ a b)))"},
+                  :source/form (clojure.core/defmacro some-macro [a b] (clojure.core/sequence (clojure.core/seq (clojure.core/concat (clojure.core/list 'clojure.core/+) (clojure.core/list 'test-code/a) (clojure.core/list 'test-code/b))))),
+                  :source/str "(defmacro some-macro [a b]\n  `(+ a b)))"},
                  :var/public? true}
                 {:var/name some-function,
                  :var/end-column 20,
@@ -111,8 +111,8 @@
                  :var/function
                  {:db/id 993887617,
                   :function/args ["[arg1 arg2]"],
-                  :function/source-form (clojure.core/defn some-function [arg1 arg2] (let [a 1 b (+ arg1 arg2)] (+ a b))),
-                  :function/source-str "(defn some-function [arg1 arg2]\n  ;; Some comment\n  (let [a 1\n        b (+ arg1 arg2)]\n    (+ a b)))"},
+                  :source/form (clojure.core/defn some-function [arg1 arg2] (let [a 1 b (+ arg1 arg2)] (+ a b))),
+                  :source/str "(defn some-function [arg1 arg2]\n  ;; Some comment\n  (let [a 1\n        b (+ arg1 arg2)]\n    (+ a b)))"},
                  :var/public? true}]})))))
 
 (deftest file-change-handler-test

@@ -81,19 +81,23 @@
    ;; Var documentation
    :var/docstring          {:db/cardinality :db.cardinality/one}
 
+   ;;;;;;;;;;;;
+   ;; Source ;;
+   ;;;;;;;;;;;;
+
+   ;; Source form. It contains all the data the clojure reader adds (:line, :column, etc) plus for
+   ;; each symbol inside, if it points to a var is has its :var/id
+   :source/form            {:db/cardinality :db.cardinality/one}
+
+   ;; Source representation as it appears on the file, contains comments, newlines etc
+   :source/str             {:db/cardinality :db.cardinality/one}
+
    ;;;;;;;;;;;;;;;
    ;; Functions ;;
    ;;;;;;;;;;;;;;;
 
    ;; True if this function is a macro
    :function/macro?        {:db/cardinality :db.cardinality/one}
-
-   ;; Function source form. It contains all the data the clojure reader adds (:line, :column, etc) plus for
-   ;; each symbol inside, if it points to a var is has its :var/id
-   :function/source-form   {:db/cardinality :db.cardinality/one}
-
-   ;; Function source representation as it appears on the file, contains comments, newlines etc
-   :function/source-str    {:db/cardinality :db.cardinality/one}
 
    ;; When this is a protocol function, it points to the protocol definition var
    :function/proto-var     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
@@ -103,6 +107,8 @@
 
    ;; A reference to the function spec (alpha version) (See :fspec.alpha/*)
    :function/spec.alpha    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+
+   ;; Functions also contanins `:source/form` and `:source/str`
 
    ;;;;;;;;;;;;;;;;;;
    ;; Multimethods ;;
@@ -117,11 +123,7 @@
    ;; The dispatch value as it appears on the defmethod
    :multimethod/dispatch-val {:db/cardinality :db.cardinality/one}
 
-   ;; The multimethod source form, same as :function/source-form but for the specific implementation
-   :multimethod/source-form  {:db/cardinality :db.cardinality/one}
-
-   ;; The multimethod source form as a string, same as :function/source-form but for the specific implementation
-   :multimethod/source-str   {:db/cardinality :db.cardinality/one}
+   ;; Multimethods also contanins `:source/form` and `:source/str`
 
    ;;;;;;;;;;;;;;;;;;;;
    ;; Var references ;;
@@ -142,12 +144,8 @@
    ;; Clojure spec alpha ;;
    ;;;;;;;;;;;;;;;;;;;;;;;;
 
-   ;; The form of the function spec definition as a list
-   :fspec.alpha/source-form      {:db/cardinality :db.cardinality/one}
-
-   ;; The form of the spec definition as a list
-   :spec.alpha/source-form       {:db/cardinality :db.cardinality/one}
-
    ;; The spec key in the spec registry
    :spec.alpha/key               {:db/cardinality :db.cardinality/one}
+
+   ;; spec.alpha and fspec.alpha also contanins `:source/form`
    })

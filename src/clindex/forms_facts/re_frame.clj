@@ -14,9 +14,6 @@
 
    :re-frame.cofx/key         {:db/cardinality :db.cardinality/one}
    :namespace/re-frame-cofxs  {:db/cardinality :db.cardinality/many :db/valueType :db.type/ref :db/isComponent true}
-
-   :source/form               {:db/cardinality :db.cardinality/one}
-   :source/str                {:db/cardinality :db.cardinality/one}
    })
 
 

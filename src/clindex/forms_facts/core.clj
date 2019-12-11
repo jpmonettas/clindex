@@ -34,7 +34,7 @@
                 (println "[Warning] not source-str for namespace" ns-name "at line" (:line (meta form)) "skipping"))
 
               (cond-> [[:db/add var-id :var/function fid]
-                       [:db/add fid :function/source-form (vary-meta form dissoc :form-str)]]
+                       [:db/add fid :source/form (vary-meta form dissoc :form-str)]]
 
                 true (into (map (fn [arg-vec] [:db/add fid :function/args (str arg-vec)]) args))
 
@@ -42,7 +42,7 @@
                 (into [[:db/add var-id :var/docstring docstring]])
 
                 form-str
-                (into [[:db/add fid :function/source-str form-str]])
+                (into [[:db/add fid :source/str form-str]])
 
                 macro?
                 (into [[:db/add fid :function/macro? true]])))
@@ -118,8 +118,8 @@
                          ;; multimethods can dispatch on nil but we can't create a nil valued fact so
                          ;; lets use nil-value symbol
                          [:db/add method-id :multimethod/dispatch-val (or dispatch-val 'nil-value)]
-                         [:db/add method-id :multimethod/source-form (vary-meta form dissoc :form-str)]]
-                  form-str (into [[:db/add method-id :multimethod/source-str form-str]]))
+                         [:db/add method-id :source/form (vary-meta form dissoc :form-str)]]
+                  form-str (into [[:db/add method-id :source/str form-str]]))
          :ctx ctx})
 
       (do
@@ -142,7 +142,7 @@
             source-form (vary-meta form dissoc :form-str)]
         {:facts [[:db/add ns-id :namespace/fspecs-alpha fspec-id]
                  [:db/add f-id :function/spec.alpha fspec-id]
-                 [:db/add fspec-id :fspec.alpha/source-form source-form]]
+                 [:db/add fspec-id :source/form source-form]]
          :ctx ctx})
 
       (do
@@ -162,7 +162,7 @@
         source-form (vary-meta form dissoc :form-str)]
     {:facts [[:db/add ns-id :namespace/specs-alpha spec-id]
              [:db/add spec-id :spec.alpha/key spec-key]
-             [:db/add spec-id :spec.alpha/source-form source-form]]
+             [:db/add spec-id :source/form source-form]]
      :ctx ctx}))
 
 (defmethod form-facts 'clojure.spec.alpha/def [all-ns-map ctx form]

@@ -66,10 +66,10 @@
     (is (= (:function/macro? facts-count) 1)
         "Should index 1 macro for test-code namespace")
 
-    (is (= (:function/source-form facts-count) 2)
+    (is (= (:source/form facts-count) 3)
         "Should index 2 source forms for test-code namespace")
 
-    (is (= (:function/source-str facts-count) 2)
+    (is (= (:source/str facts-count) 3)
         "Should index 2 source strings for test-code namespace")
 
     (is (= (:function/proto-var facts-count) 1)
@@ -79,10 +79,7 @@
         "Should index 1 protocol for test-code namespace")
 
     (is (= (:var/multi facts-count) 1)
-        "Should index 1 multi definition test-code namespace")
-
-    (is (= (:multimethod/source-form facts-count) (:multimethod/dispatch-val facts-count) 1)
-        "Should index 1 multimethod definition test-code namespace")))
+        "Should index 1 multi definition test-code namespace")))
 
 
 (comment
