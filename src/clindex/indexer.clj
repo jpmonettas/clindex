@@ -82,7 +82,11 @@
             ;; lets collect this form facts
             (list? token)
             (let [form' (resolve-utils/fully-qualify-form-first-symb all-ns-map ns-symb token)
-                  {ffacts :facts fctx :ctx} (form-facts all-ns-map ctx form')]
+                  {ffacts :facts fctx :ctx} (try
+                                              (form-facts all-ns-map ctx form')
+                                              (catch Exception e
+                                                (prn "[Error] found when extracting form-facts for " form')
+                                                {:facts [] :ctx ctx}))]
               (recur (utils/move-zipper-to-next zloc #(or (list? %) (symbol? %)))
                      (into facts ffacts)
                      (merge ctx fctx)))

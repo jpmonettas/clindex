@@ -110,8 +110,9 @@
 (defn- defmethod-facts [all-ns-map ctx [_ var-name dispatch-val :as form]]
   (let [current-ns-name (:namespace/name ctx)
         fqvar (resolve-utils/fully-qualify-symb all-ns-map current-ns-name var-name)]
-    (if-let [var-ns (namespace fqvar)]
-      (let [form-str (:form-str (meta form))
+    (if (and fqvar (namespace fqvar))
+      (let [var-ns (namespace fqvar)
+            form-str (:form-str (meta form))
             multi-id (utils/multi-id (symbol var-ns) (symbol (name fqvar)))
             method-id (utils/multimethod-id current-ns-name var-name dispatch-val)]
         {:facts (cond-> [[:db/add multi-id :multi/methods method-id]
@@ -135,8 +136,9 @@
 
 (defn- spec-alpha-fdef-facts [all-ns-map ctx [_ f-name :as form]]
   (let [fqfn (resolve-utils/fully-qualify-symb all-ns-map (:namespace/name ctx) f-name)]
-    (if-let [fqfn-ns (namespace fqfn)]
-      (let [f-id (utils/function-id (symbol fqfn-ns) (symbol (name fqfn)))
+    (if (and fqfn (namespace fqfn))
+      (let [fqfn-ns (namespace fqfn)
+            f-id (utils/function-id (symbol fqfn-ns) (symbol (name fqfn)))
             fspec-id (utils/fspec-alpha-id (:namespace/name ctx) (symbol (name fqfn)))
             ns-id (utils/namespace-id (:namespace/name ctx))
             source-form (vary-meta form dissoc :form-str)]

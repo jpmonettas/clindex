@@ -14,7 +14,7 @@
             (let [{:keys [:namespace/public-vars :namespace/macros] :as rns} (get all-ns-map rns-symb)]
               (when (contains? (into public-vars macros) fsymb)
                 (symbol (name (:namespace/name rns)) (name fsymb)))))
-      ns-requires)))
+          ns-requires)))
 
 (defn- function-call? [all-ns-map ns-symb fq-fsymb]
   (let [fns-symb (when-let [n (namespace fq-fsymb)]

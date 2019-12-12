@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Fix defmethod-facts and prevent indexer crashing when form-facts crashes for a form
+
 ## 0.4.0 (2019-12-11)
 
 - [BREAKING] Schema :[function,multimethod,spec.alpha,fspec.alpha]/:source-form collapsed into :source/form, same with :source/str
