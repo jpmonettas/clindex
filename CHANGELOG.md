@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.4.1 (2019-12-12)
+
 - Fix defmethod-facts and prevent indexer crashing when form-facts crashes for a form
 
 ## 0.4.0 (2019-12-11)
