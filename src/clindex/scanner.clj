@@ -135,22 +135,6 @@
                                                     (into #{})))])))
          (into {}))))
 
-(defn topo-sort
-  "Given a list of things, a name-fn and deps-fn representing a graph (where deps are pointers to other names)
-  returns a list of names in topological order."
-  [xs name-fn deps-fn]
-  (dep/topo-sort
-   (reduce
-    (fn [dep-graph x]
-      (let [name (name-fn x)
-            deps (deps-fn x)]
-        (reduce (fn [dg pd]
-                  (dep/depend dg name pd))
-                dep-graph
-                deps)))
-    (dep/graph)
-    xs)))
-
 (def build-file->project-map
   (memoize
    (fn [all-projs]
@@ -398,17 +382,6 @@
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljc
          ;; jar:file:/home/jmonetta/.m2/repository/org/clojure/clojurescript/1.10.439/clojurescript-1.10.439.jar!/cljs/core.cljs
          (merge-namespaces))))
-
-(s/fdef scan-all
-  :args (s/cat :base-dir :file/path
-               :opts (s/keys :req-un [:scanner/platform]))
-  :ret (s/keys :req-un [:scanner/projects
-                        :scanner/namespaces]))
-
-(defn scan-all [base-dir opts]
-  (let [projects (scan-all-projects base-dir opts)]
-    {:projects projects
-     :namespaces (scan-namespaces projects opts)}))
 
 (comment
 
