@@ -76,10 +76,12 @@
               docstring (into [[:db/add var-id :var/docstring docstring]])
               true      (into (->> proto-fns
                                    (filter list?)
-                                   (mapcat (fn [[f-name]]
-                                             (let [fid (utils/function-id ns-name f-name)]
-                                               [[:db/add fid :function/proto-var var-id]
-                                                [:db/add (utils/var-id ns-name f-name) :var/function fid]]))))))
+                                   (mapcat (fn [[f-name args-vec]]
+                                             (let [fid (utils/function-id ns-name f-name)
+                                                   fvarid (utils/var-id ns-name f-name)]
+                                               [[:db/add fvarid :var/function fid]
+                                                [:db/add fid :function/proto-var var-id]
+                                                [:db/add fid :function/args (str args-vec)]]))))))
      :ctx (merge ctx {:in-protocol pname})}))
 
 (defn- defmulti-facts [all-ns-map ctx [_ var-name arg1 arg2 :as form]]

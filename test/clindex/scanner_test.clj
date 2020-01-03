@@ -48,7 +48,7 @@
                                     (clojure.core/sequence
                                      (clojure.core/seq
                                       (clojure.core/concat
-                                       (clojure.core/list 'clojure.core/+)
+                                       (clojure.core/list 'test-code/+)
                                        (clojure.core/list 'test-code/a)
                                        (clojure.core/list 'test-code/b))))),
                                   :form-str "(defmacro some-macro [a b]\n  `(+ a b)))"}

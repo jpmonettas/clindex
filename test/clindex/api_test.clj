@@ -34,7 +34,9 @@
                  :var/column 4,
                  :var/end-column 16,
                  :var/function
-                 {:db/id 1493209856, :function/proto-var #:db{:id 453362419}},
+                 {:db/id 1493209856,
+                  :function/proto-var #:db{:id 453362419}
+                  :function/args ["[_]"]},
                  :var/line 17,
                  :var/name do-something,
                  :var/namespace 1653199087,
@@ -92,7 +94,7 @@
                  {:db/id 182575839,
                   :function/args ["[a b]"],
                   :function/macro? true,
-                  :source/form (clojure.core/defmacro some-macro [a b] (clojure.core/sequence (clojure.core/seq (clojure.core/concat (clojure.core/list 'clojure.core/+) (clojure.core/list 'test-code/a) (clojure.core/list 'test-code/b))))),
+                  :source/form (clojure.core/defmacro some-macro [a b] (clojure.core/sequence (clojure.core/seq (clojure.core/concat (clojure.core/list 'test-code/+) (clojure.core/list 'test-code/a) (clojure.core/list 'test-code/b))))),
                   :source/str "(defmacro some-macro [a b]\n  `(+ a b)))"},
                  :var/public? true}
                 {:var/name some-function,

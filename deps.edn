@@ -9,6 +9,7 @@
         hawk                           {:mvn/version "0.2.11"}
         ;; org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}
         jpmonettas/tools.namespace     {:mvn/version "0.3.2"}
+        hashp                          {:mvn/version "0.1.0"}
         }
  :aliases
  {:dev {:extra-paths ["dev-src"]}
