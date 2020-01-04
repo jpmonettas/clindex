@@ -4,6 +4,8 @@
         compojure                      {:mvn/version "1.6.1"}
 
         ;; this is on the s3 repo
-        com.google.cloud/google-cloud-monitoring {:mvn/version "1.78.0"}
+        ;; com.google.cloud/google-cloud-monitoring {:mvn/version "1.78.0"}
         }
- :mvn/repos {"datomic-cloud" {:url "s3://datomic-releases-1fc2183a/maven/releases"}}}
+ ;; Comenting out since it makes tests super slow since it downloads deps every time
+ ;; :mvn/repos {"datomic-cloud" {:url "s3://datomic-releases-1fc2183a/maven/releases"}}
+ }

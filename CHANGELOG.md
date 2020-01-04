@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file. This change
 ## [Unreleased]
 
 - Add :function/args to protocol functions
+- Upgrade to datascript 0.18.8
 
 ## 0.4.1 (2019-12-12)
 

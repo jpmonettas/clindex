@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
-        datascript                     {:mvn/version "0.17.1"}
+        datascript                     {:mvn/version "0.18.8"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
         org.clojure/tools.deps.alpha   {:mvn/version "0.8.599"}
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
