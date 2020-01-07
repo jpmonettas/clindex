@@ -66,8 +66,7 @@
 (defmethod form-facts 'cljs.core/defmacro [all-ns-map {:keys [:namespace/name] :as ctx} form]
   (defn-facts ctx name form true))
 
-(defmethod form-facts 'defprotocol
-  [all-ns-map ctx [_ pname & r]]
+(defn- defprotocol-facts [all-ns-map ctx [_ pname & r :as form]]
   (let [ns-name (:namespace/name ctx)
         var-id (utils/var-id ns-name pname)
         docstring (when (string? (first r)) (first r))
@@ -83,6 +82,14 @@
                                                 [:db/add fid :function/proto-var var-id]
                                                 [:db/add fid :function/args (str args-vec)]]))))))
      :ctx (merge ctx {:in-protocol pname})}))
+
+(defmethod form-facts 'defprotocol
+  [all-ns-map ctx form]
+  (defprotocol-facts all-ns-map ctx form))
+
+(defmethod form-facts 'cljs.core/defprotocol
+  [all-ns-map ctx form]
+  (defprotocol-facts all-ns-map ctx form))
 
 (defn- defmulti-facts [all-ns-map ctx [_ var-name arg1 arg2 :as form]]
   (let [ns-name (:namespace/name ctx)
