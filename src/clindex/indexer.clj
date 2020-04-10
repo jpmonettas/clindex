@@ -31,10 +31,18 @@
                                  [:db/add proj-id :project/depends (utils/project-id dep-symb)])
                                dependencies)))))
 
-(defn- files-facts [{:keys [:project/files] :as proj}]
+(defn- files-facts [{:keys [:project/files] :as proj} {:keys [index-file? file-facts]}]
   (->> files
-       (mapv (fn [file]
-               [:db/add (utils/file-id (:full-path file)) :file/name (:full-path file)]))))
+       (map (fn [file]
+              (let [file-id (utils/file-id (:full-path file))
+                    file-path (:full-path file)
+                    proj-id (utils/project-id (:project/name proj))]
+                [file-id (cond->> [[:db/add proj-id :project/files file-id]
+                                   [:db/add file-id :file/name file-path]]
+                           (and index-file? (index-file? {:file-path file-path})) (into (file-facts {:project-id proj-id
+                                                                                                     :file-id file-id
+                                                                                                     :file-path file-path})))])))
+       (into {})))
 
 (defn- namespace-facts [ns]
   (let [ns-id (utils/namespace-id (:namespace/name ns))
@@ -147,21 +155,30 @@
         (namespace-forms-facts all-ns-map ns-symb)))
 
 
-(s/fdef all-facts
-    :args (s/cat :m (s/keys :req-un [:scanner/projects
-                                     :scanner/namespaces]))
-    :ret (s/coll-of :datomic/fact))
 
-(defn all-facts [{:keys [projects namespaces]}]
+(s/def ::facts-by-file (s/map-of :datomic/id (s/coll-of :datomic/fact)))
+(s/def ::all-projects-facts (s/coll-of :datomic/fact))
+(s/def ::all-source-facts (s/coll-of :datomic/fact))
+
+(s/fdef all-facts
+  :args (s/cat :m (s/keys :req-un [:scanner/projects
+                                   :scanner/namespaces])
+               :opts (s/keys :opt-un [:scanner/extra-files]))
+  :ret (s/keys :req-un [::facts-by-file
+                        ::all-projects-facts
+                        ::all-source-facts]))
+
+(defn all-facts [{:keys [projects namespaces]} {:keys [extra-files]}]
   (let [all-projs-facts (mapcat project-facts (vals projects))
-        all-files-facts (mapcat files-facts (vals projects))
+        facts-by-files (->> (vals projects)
+                            (map #(files-facts % extra-files))
+                            (reduce merge {}))
         all-source-facts (->> namespaces
                               (map (fn [[ns-symb _]] (namespace-full-facts namespaces ns-symb)))
                               (apply concat))]
-    (-> []
-        (into all-projs-facts)
-        (into all-files-facts)
-        (into all-source-facts))))
+    {:facts-by-file facts-by-files
+     :all-projects-facts all-projs-facts
+     :all-source-facts all-source-facts}))
 
 (comment
 
@@ -195,7 +212,7 @@
 
   (prof/profile
    (time
-    (prn (count (all-facts {:projects all-projs :namespaces all-ns})))))
+    (def facts(all-facts {:projects all-projs :namespaces all-ns} {}))))
 
 
   )

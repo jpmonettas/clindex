@@ -30,14 +30,14 @@
 (defn all-files [base-dir pred]
   (with-open [childs (files/walk (files/as-path base-dir))]
     (->> (stream/stream-seq childs)
-         (filter pred)
-         (mapv (fn [p] (make-file (str p)))))))
+         (mapv (fn [p] (make-file (str p))))
+         (filter #(pred (:full-path %))))))
 
 (defn jar-files [jar-path pred]
   (->> (JarFile. jar-path)
        .entries
        enumeration-seq
-       (filter #(pred (.getName %)))
+       (filter #(pred (jar-full-path jar-path (.getName %))))
        (map (fn [p]
               (make-file jar-path (.getName p))))))
 
@@ -92,8 +92,12 @@
   (not (str/includes? (System/getProperty "java.class.path")
                       "org/clojure/tools.namespace")))
 
+(def collision-detector (atom {}))
+
 (defn stable-id [& args]
-  (Math/abs (apply hash [args])))
+  (let [h (Math/abs (apply hash [args]))]
+    #_(swap! collision-detector update h (fnil conj #{}) args)
+    h))
 
 (defn project-id [proj-symb]
   (stable-id :project proj-symb))

@@ -9,7 +9,8 @@ Instead, as an api for talking about your code it gives you a datascript db full
 
 - Index **your project and all its dependency** tree (only lein and deps.edn supported so far)
 - **Big set of facts** out of the box, see [schema](/src/clindex/schema.clj)
-- **Extensible**, you can make any form generate any facts by adding a method for the `clindex.forms-facts.core/form-facts` multimethod
+- **Extensible**, you can make any form generate any facts by adding a method for the `clindex.forms-facts.core/form-facts` multimethod,
+  Also non source files can be indexed, check `:extra-files`.
 - **Hot reload**, watches your sources and reindexes whenever something on its source path changes, taking care of retraction and notification
 
 ## Installation
@@ -71,6 +72,7 @@ The latest released version is: [![Clojars Project](https://img.shields.io/cloja
 
 - `:platforms` a set containing :clj and/or :cljs
 - `:extra-schema` a schema that will be merged with dbs schemas
+- `:extra-files` a map containing :index-file?, :file-facts, intended to be used on non clojure source files
 - `:on-new-facts` a fn of one arg that will be called with new facts everytime a file inside base-dir project sources changes
 
 ## DB schema
@@ -95,6 +97,46 @@ It should return a map with the following keys :
 
 - `:ctx`, the new context
 - `:facts`, a collection of datascript tx-data like `[:db/add eid attr val]`
+
+### Using clindex for indexing othe project files (experimental)
+
+You can extend clindex to make it index any files you want using the `:extra-files` option.
+
+Imagine you want to index all projects deps.edn files aliases, you can try something like :
+
+```clojure
+(require '[clojure.edn :as edn])
+
+(clindex/index-project! "./test-resources/test-project/"
+                        {:platforms #{:clj}
+                         :extra-schema {:project/aliases {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+                                        :deps.alias/name {:db/cardinality :db.cardinality/one}}
+                         :on-new-facts (fn [new-facts] (prn "New Facts :" new-facts))
+                         :extra-files {:index-file? (fn [{:keys [file-path]}]
+                                                      (.endsWith file-path "/deps.edn"))
+                                       :file-facts (fn [{:keys [project-id file-id file-path]}]
+                                                     (let [aliases (-> (slurp file-path)
+                                                                       (edn/read-string)
+                                                                       :aliases)]
+                                                       (->> aliases
+                                                            (mapcat (fn [[a-key _]]
+                                                                      (let [alias-id (utils/stable-id project-id :deps/alias a-key)]
+                                                                        [[:db/add alias-id :deps.alias/name (name a-key)]
+                                                                         [:db/add project-id :project/aliases alias-id ]]))))))}})
+
+(d/q '[:find ?pname ?aname
+       :in $
+       :where
+       [?pid :project/name ?pname]
+       [?pid :project/aliases ?aid]
+       [?aid :deps.alias/name ?aname]]
+     (clindex/db :clj))
+;; =>
+;; #{[clindex/main-project "bench"]
+;;   [clindex/main-project "test"]
+;;   [clindex/main-project "1.7"]}
+```
+
 
 ### Example: indexing compojure routes
 ```clojure
@@ -187,3 +229,7 @@ This is a high level overview of the api and the scanner.
 
 This is a high level overview of the indexer.
 <img src="/doc/indexer.png?raw=true"/>
+
+## Known issues
+
+- Not indexing deps.edn file source paths outside base dir until implementing `clindex.scanner/calculate-base-paths`

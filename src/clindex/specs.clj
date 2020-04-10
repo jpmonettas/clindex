@@ -3,6 +3,7 @@
             [clojure.tools.namespace.find :as ns-find]))
 
 (s/def :file/path string?)
+(s/def :datomic/id int?)
 (s/def :datomic/fact any?)
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -56,6 +57,8 @@
 (s/def :scanner/namespaces (s/map-of :namespace/name :scanner/namespace))
 
 (s/def :scanner/platform #{ns-find/clj ns-find/cljs})
+(s/def :scanner/extra-files (s/keys :req-un [::index-file?
+                                             ::file-facts]))
 
 
 (s/def :clindex/platform #{:clj :cljs})

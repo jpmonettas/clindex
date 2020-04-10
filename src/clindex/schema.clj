@@ -19,6 +19,9 @@
    ;; A collection of references to namespaces this project contains
    :project/namespaces     {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many :db/isComponent true}
 
+   ;; A collection of references to files
+   :project/files          {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many :db/isComponent true}
+
    ;;;;;;;;;;;
    ;; Files ;;
    ;;;;;;;;;;;

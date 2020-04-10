@@ -128,5 +128,6 @@
                                           (datoms-with-add false)))))
                                #{:clj}
                                {}
+                               {}
                                {:kind :modify
                                 :file (io/file "./test-resources/test-project/src/test_code.cljc")})))

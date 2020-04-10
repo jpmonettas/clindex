@@ -1,11 +1,18 @@
 {:paths ["src"]
- :deps {org.clojure/clojure            {:mvn/version "1.10.0"}
+ :deps {
+        org.clojure/clojure            {:mvn/version "1.10.0"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}
         compojure                      {:mvn/version "1.6.1"}
 
         ;; this is on the s3 repo
         ;; com.google.cloud/google-cloud-monitoring {:mvn/version "1.78.0"}
         }
+
+ ;; Some test aliases
+ :aliases {:1.7 {:override-deps {org.clojure/clojure {:mvn/version "1.7.0"}}}
+           :bench {:extra-deps {criterium/criterium {:mvn/version "0.4.4"}}}
+           :test {:extra-paths ["test"]}
+           }
  ;; Comenting out since it makes tests super slow since it downloads deps every time
  ;; :mvn/repos {"datomic-cloud" {:url "s3://datomic-releases-1fc2183a/maven/releases"}}
  }

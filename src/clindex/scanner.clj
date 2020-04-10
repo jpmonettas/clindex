@@ -96,20 +96,35 @@
   "Retrieves all project files maps for a platform.
   A project shoudl be a map containing a collection of paths, could be dirs or jar files.
   Platform is tools.namespace clj or cljs platform."
-  [{:keys [paths]} {:keys [platform]}]
-  (let [extensions (-> platform :extensions)
+  [{:keys [paths]} {:keys [platform extra-files]}]
+  (let [extensions (:extensions platform)
+        index-file? (:index-file? extra-files)
         interested-in? (fn [full-path]
-                         (some #(str/ends-with? full-path %) extensions))]
+                         (or (some #(str/ends-with? full-path %) extensions)
+                             (and index-file? (index-file? {:file-path full-path}))))]
     (->> paths
-        (mapcat (fn [p]
-                  (if (str/ends-with? p ".jar")
-                    (utils/jar-files p interested-in?)
-                    (utils/all-files p interested-in?)))))))
+         (mapcat (fn [p]
+                   (if (str/ends-with? p ".jar")
+                     (utils/jar-files p interested-in?)
+                     (utils/all-files p interested-in?)))))))
 
 (s/fdef scan-all-projects
   :args (s/cat :base-dir :file/path
-               :opts (s/keys :req-un [:scanner/platform]))
+               :opts (s/keys :req-un [:scanner/platform]
+                             :opt-un [:scanner/extra-files]))
   :ret :scanner/projects)
+
+(defn calculate-base-paths [base-dir paths]
+  ;; TODO: fix this to support multiple paths outside our project
+  ;; this is for supporting deps.edn that allows looking into other project sources
+  ;; base-dir can be "./" or "/home/jmonetta/some-project"
+  ;; paths can be "src", "test", "../some-other-project/src"
+  ;; at the end we should return
+  ;; ["/home/jmonetta/some-project" "/home/jmonetta/some-other-project/src"]
+  ;;
+  ;; So all paths inside base-dir collapses to expanded base-dir
+  ;; All paths outside are just extended
+  [base-dir])
 
 (defn scan-all-projects
   "Given a base dir retrieves all projects (including base one) and all its dependencies.
@@ -122,7 +137,7 @@
         all-projs (tools-dep/resolve-deps proj nil)]
     (->> (assoc all-projs main-project-symb (-> proj
                                                 (assoc :main? true)
-                                                (update :paths (fn [paths] (map #(str base-dir "/" %) paths)))))
+                                                (update :paths (partial calculate-base-paths base-dir))))
          (map (fn [[p-symb p-map]]
                 ;; TODO: fix this hack, :local/root deps include a path that contains
                 ;; this unreplaced variable
@@ -375,7 +390,6 @@
                                  (into r paths))
                                #{})
                        (map io/file))]
-
     (->> (ns-find/find-ns-decls all-paths platform)
          (pmap (fn [ns-decl] (scan-namespace-decl ns-decl all-projs platform)))
          ;; need to merge namespaces since we can have the same namespace in different files like in
@@ -385,7 +399,7 @@
 
 (comment
 
-  (def all-projs (scan-all-projects "/home/jmonetta/my-projects/clindex" {:platform ns-find/clj}))
+  (def all-projs (scan-all-projects "/home/jmonetta/my-projects/clograms" {:platform ns-find/cljs}))
   (def all-projs (scan-all-projects "/home/jmonetta/my-projects/district0x/memefactory" {:platform ns-find/cljs}))
 
   (def test-ns (scan-namespace "/home/jmonetta/my-projects/clindex/src/clindex/indexer.clj" all-projs {:platform ns-find/clj #_ns-find/cljs}))

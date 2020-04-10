@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+- Add support for indexing extra-files (non source files)
+
 ## 0.4.3 (2020-1-8)
 
 - Fix protocol indexing for ClojureScript files

@@ -10,7 +10,13 @@
             [clindex.scanner :as scanner]
             [clojure.pprint :as pprint]
             [clindex.forms-facts.core :as forms-facts]
-            [clindex.utils :as utils]))
+            [clindex.utils :as utils]
+
+            [clindex.api :as clindex]
+            [datascript.core :as d]
+            [clojure.string :as str]
+            [hashp.core]
+            ))
 
 (comment
 
@@ -83,5 +89,32 @@
          [?rid :compojure.route/url ?rurl]]
        db)
 
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+  (require '[clojure.edn :as edn])
+
+  (clindex/index-project! "./test-resources/test-project/"
+                          {:platforms #{:clj}
+                           :extra-schema {:project/aliases {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+                                          :deps.alias/name {:db/cardinality :db.cardinality/one}}
+                           :on-new-facts (fn [new-facts] (prn "New Facts :" new-facts))
+                           :extra-files {:index-file? (fn [{:keys [file-path]}]
+                                                        (.endsWith file-path "/deps.edn"))
+                                         :file-facts (fn [{:keys [project-id file-id file-path]}]
+                                                       (let [aliases (-> (slurp file-path)
+                                                                         (edn/read-string)
+                                                                         :aliases)]
+                                                         (->> aliases
+                                                              (mapcat (fn [[a-key _]]
+                                                                        (let [alias-id (utils/stable-id project-id :deps/alias a-key)]
+                                                                          [[:db/add alias-id :deps.alias/name (name a-key)]
+                                                                           [:db/add project-id :project/aliases alias-id ]]))))))}})
+
+  (pprint/pprint (d/q '[:find ?pname ?aname
+                        :in $
+                        :where
+                        [?pid :project/name ?pname]
+                        [?pid :project/aliases ?aid]
+                        [?aid :deps.alias/name ?aname]]
+                      (clindex/db :clj)))
   )
