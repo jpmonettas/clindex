@@ -119,7 +119,12 @@
                                  :paths []}}"
   [base-dir opts]
   (let [proj (find-project-in-dir base-dir)
-        all-projs (tools-dep/resolve-deps proj nil)]
+        all-projs (tools-dep/resolve-deps proj nil)
+        clojure-jar-path (utils/get-clojure-jar-path)
+        clojure-project {:project/name 'org.clojure/clojure
+                         :project/dependencies #{}
+                         :project/files #{clojure-jar-path}
+                         :paths #{clojure-jar-path}}]
     (->> (assoc all-projs main-project-symb (-> proj
                                                 (assoc :main? true)
                                                 (update :paths (fn [paths] (map #(str base-dir "/" %) paths)))))
@@ -133,7 +138,7 @@
                                 :project/name p-symb
                                 :project/files (->> (project-files p-map opts)
                                                     (into #{})))])))
-         (into {}))))
+         (into {'org.clojure/clojure clojure-project}))))
 
 (def build-file->project-map
   (memoize

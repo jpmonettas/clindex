@@ -16,7 +16,7 @@ Instead, as an api for talking about your code it gives you a datascript db full
 
 **Clindex** is available as a Maven artifact from Clojars.
 
-The latest released version is: [![Clojars Project](https://img.shields.io/clojars/v/clindex.svg)](https://clojars.org/clindex)<br>
+The latest released version is: [![Clojars Project](https://img.shields.io/clojars/v/com.github.jpmonettas/clindex.svg)](https://clojars.org/com.github.jpmonettas/clindex)<br>
 
 ## Usage
 

@@ -1,25 +1,26 @@
 {:paths ["src"]
- :deps {org.clojure/clojure            {:mvn/version "RELEASE"}
-        datascript                     {:mvn/version "0.18.8"}
+ :deps {datascript/datascript          {:mvn/version "0.18.8"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
-        org.clojure/tools.deps.alpha   {:mvn/version "0.8.599"}
+        org.clojure/tools.deps.alpha   {:mvn/version "0.8.599"
+                                        :exclusions [org.clojure/tools.namespace]}
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
         org.clojure/tools.analyzer.jvm {:mvn/version "0.7.3"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}
-        hawk                           {:mvn/version "0.2.11"}
+        hawk/hawk                      {:mvn/version "0.2.11"}
         ;; org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}
         jpmonettas/tools.namespace     {:mvn/version "0.3.2"}
-        hashp                          {:mvn/version "0.1.0"}
-        }
+        hashp/hashp                    {:mvn/version "0.1.0"}}
  :aliases
  {:dev {:extra-paths ["dev-src"]}
   :test {:extra-paths ["test"]
          :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}
-                      expound                {:mvn/version "0.7.2"}}}
+                      expound/expound        {:mvn/version "0.7.2"}}}
   :runner
   {:extra-deps {com.cognitect/test-runner
                 {:git/url "https://github.com/cognitect-labs/test-runner"
                  :sha "76568540e7f40268ad2b646110f237a60295fa3c"
                  :exclusions [org.clojure/tools.namespace]}}
    :main-opts ["-m" "cognitect.test-runner"
-               "-d" "test"]}}}
+               "-d" "test"]}
+  :build {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.8.1" :git/sha "7d40500"}}
+          :ns-default build}}}

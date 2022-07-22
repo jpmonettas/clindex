@@ -88,6 +88,12 @@
               f))
           tx-data))
 
+(defn get-clojure-jar-path []
+  (some (fn [jar-path]
+          (when (str/includes? jar-path "org/clojure/clojure/")
+            jar-path))
+        (str/split (System/getProperty "java.class.path") #":")))
+
 (defn sane-classpath? []
   (not (str/includes? (System/getProperty "java.class.path")
                       "org/clojure/tools.namespace")))

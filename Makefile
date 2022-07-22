@@ -1,23 +1,16 @@
 .PHONY: release deploy clean help
 
 clean:
-	-rm clindex.jar
-	-rm pom.xml
+	clj -T:build clean
 
 clindex.jar:
-	clj -A:jar clindex.jar
+	clj -T:build jar
 
-pom.xml:
-	clj -Spom
-	mvn versions:set -DnewVersion=$(version)
-
-release: clean clindex.jar pom.xml
-
-install: clindex.jar pom.xml
-	mvn install:install-file -Dfile=clindex.jar -DpomFile=pom.xml
+install: clindex.jar
+	mvn install:install-file -Dfile=target/clindex.jar -DpomFile=target/classes/META-INF/maven/com.github.jpmonettas/clindex/pom.xml
 
 deploy:
-	mvn deploy:deploy-file -Dfile=clindex.jar -DrepositoryId=clojars -DpomFile=pom.xml -Durl=https://clojars.org/repo
+	mvn deploy:deploy-file -Dfile=target/clindex.jar -DrepositoryId=clojars -DpomFile=target/classes/META-INF/maven/com.github.jpmonettas/clindex/pom.xml -Durl=https://clojars.org/repo
 
 tag-release:
 	git add CHANGELOG.md && \
