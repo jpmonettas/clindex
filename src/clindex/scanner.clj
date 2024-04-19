@@ -12,8 +12,9 @@
   "
   (:require [clojure.string :as str]
             [clindex.utils :as utils]
-            [clojure.tools.deps.alpha.util.io :as tools-io]
-            [clojure.tools.deps.alpha :as tools-dep]
+            [clojure.tools.deps.util.io :as tools-io]
+            [clojure.tools.deps.util.maven :as tool-deps-maven]
+            [clojure.tools.deps :as tools-dep]
             [clojure.tools.namespace.dependency :as dep]
             [clojure.java.io :as io]
             [clojure.tools.namespace.parse :as ns-parse]
@@ -26,8 +27,7 @@
             [cljs.core.specs.alpha :as cljs-spec]
             [cljs.tagged-literals :as tags]
             [clojure.spec.alpha :as s]
-            [clindex.specs]
-            [clojure.tools.deps.alpha.util.maven :as tool-deps-maven]))
+            [clindex.specs]))
 
 (def ^:dynamic *def-public-set* #{'def 'defonce 'defn 'declare 'defmulti 'deftype 'defprotocol 'defrecod})
 (def ^:dynamic *def-macro-set* #{'defmacro})

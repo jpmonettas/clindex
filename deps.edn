@@ -1,17 +1,27 @@
 {:paths ["src"]
  :deps {datascript/datascript          {:mvn/version "0.18.8"}
         org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
-        org.clojure/tools.deps.alpha   {:mvn/version "0.8.599"
+        org.clojure/tools.deps         {:mvn/version "0.19.1417"
                                         :exclusions [org.clojure/tools.namespace]}
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}
         org.clojure/tools.analyzer.jvm {:mvn/version "0.7.3"}
         org.clojure/clojurescript      {:mvn/version "1.10.516"}
         hawk/hawk                      {:mvn/version "0.2.11"}
-        ;; org.clojure/tools.namespace    {:local/root "/home/jmonetta/my-projects/tools.namespace"}
         jpmonettas/tools.namespace     {:mvn/version "0.3.2"}
         hashp/hashp                    {:mvn/version "0.1.0"}}
+ ;; for the profilers
  :aliases
- {:dev {:extra-paths ["dev-src"]}
+ {:dev {:extra-paths ["dev-src"]
+        :classpath-overrides {org.clojure/clojure nil}
+        :extra-deps {com.github.flow-storm/clojure {:mvn/version "1.12.0-alpha9_4"}
+                     com.github.flow-storm/flow-storm-dbg {:mvn/version "3.15.2"
+                                                           :exclusions [org.clojure/tools.namespace]}}
+        :jvm-opts ["-Dclojure.storm.instrumentEnable=true"
+                   "-Dclojure.storm.instrumentAutoPrefixes=true"
+                   "-Dflowstorm.jarEditorCommand=emacsclient -n +<<LINE>>:0 <<JAR>>/<<FILE>>"
+                   "-Dflowstorm.fileEditorCommand=emacsclient -n +<<LINE>>:0 <<FILE>>"]
+        ;;:jvm-opts ["-Dproject-name=Clindex" "-Djdk.attach.allowAttachSelf" "-XX:+UnlockDiagnosticVMOptions" "-XX:+DebugNonSafepoints"]
+        }
   :test {:extra-paths ["test"]
          :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}
                       expound/expound        {:mvn/version "0.7.2"}}}
@@ -22,5 +32,5 @@
                  :exclusions [org.clojure/tools.namespace]}}
    :main-opts ["-m" "cognitect.test-runner"
                "-d" "test"]}
-  :build {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.8.1" :git/sha "7d40500"}}
-          :ns-default build}}}
+  :build {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}}
+                   :ns-default build}}}
