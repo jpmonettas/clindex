@@ -1,6 +1,5 @@
 {:paths ["src"]
  :deps {datascript/datascript          {:mvn/version "0.18.8"}
-        org.ajoberstar/ike.cljj        {:mvn/version "0.4.1"}
         org.clojure/tools.deps         {:mvn/version "0.19.1417"
                                         :exclusions [org.clojure/tools.namespace]}
         org.clojure/tools.analyzer     {:mvn/version "0.7.0"}

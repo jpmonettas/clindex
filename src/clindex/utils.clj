@@ -1,7 +1,5 @@
 (ns clindex.utils
-  (:require [ike.cljj.file :as files]
-            [ike.cljj.stream :as stream]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.zip :as zip])
   (:import [java.io File]
@@ -28,10 +26,12 @@
       :content-url (io/as-url full-path)})))
 
 (defn all-files [base-dir pred]
-  (with-open [childs (files/walk (files/as-path base-dir))]
-    (->> (stream/stream-seq childs)
-         (filter pred)
-         (mapv (fn [p] (make-file (str p)))))))
+  (->> (file-seq (File. base-dir))
+       (keep (fn [^File f]
+               (when (.canRead f)
+                 (let [full-path (.getAbsolutePath f)]
+                   (when (pred full-path)
+                     (make-file full-path))))))))
 
 (defn jar-files [jar-path pred]
   (->> (JarFile. jar-path)

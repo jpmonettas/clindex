@@ -1,4 +1,4 @@
-.PHONY: release deploy clean help
+.PHONY: release deploy clean help test
 
 clean:
 	clj -T:build clean
@@ -11,6 +11,9 @@ install: clindex.jar
 
 deploy:
 	mvn deploy:deploy-file -Dfile=target/clindex.jar -DrepositoryId=clojars -DpomFile=target/classes/META-INF/maven/com.github.jpmonettas/clindex/pom.xml -Durl=https://clojars.org/repo
+
+test:
+	clj -M:test:runner
 
 tag-release:
 	git add CHANGELOG.md && \

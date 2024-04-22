@@ -119,7 +119,7 @@
                                  :paths []}}"
   [base-dir opts]
   (let [proj (find-project-in-dir base-dir)
-        all-projs (tools-dep/resolve-deps proj nil)
+        all-projs (tools-dep/resolve-deps proj {})
         clojure-jar-path (utils/get-clojure-jar-path)
         clojure-project {:project/name 'org.clojure/clojure
                          :project/dependencies #{}
