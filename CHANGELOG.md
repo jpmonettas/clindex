@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+## 0.4.97 (2024-07-02)
+
 - Fix facts with nil values issue
 
 ## 0.4.3 (2020-1-8)
